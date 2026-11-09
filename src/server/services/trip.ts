@@ -115,6 +115,36 @@ export async function autofill(
   return out;
 }
 
+export type FlagKind = "DIESEL_HIGH" | "ZERO_COST" | "NO_DRIVER" | "FREIGHT_MISMATCH" | "BUSY_TRAILER" | "DUP_LR";
+export type Flag = { kind: FlagKind; label: string };
+
+export const FLAG_LABELS: Record<FlagKind, string> = {
+  DIESEL_HIGH: "Diesel >10% over route standard",
+  ZERO_COST: "Revenue with zero cost",
+  NO_DRIVER: "No driver",
+  FREIGHT_MISMATCH: "Freight differs from rate card",
+  BUSY_TRAILER: "Trailer has 3+ trips this day",
+  DUP_LR: "Duplicate LR in source sheet",
+};
+
+/**
+ * Anomaly flags for one trip (SPEC smart features). Warnings only; never blocks a save.
+ * sameDayTrips = number of trips the same trailer has on the same date, including this one.
+ */
+export function flags(
+  t: { dieselL: number; freight: Paise; totalCost: Paise; driverId: number | null; lrNo: string },
+  ctx: { rate?: { freight: Paise; stdDieselL: number } | null; sameDayTrips: number },
+): Flag[] {
+  const out: FlagKind[] = [];
+  if (ctx.rate && ctx.rate.stdDieselL > 0 && t.dieselL > ctx.rate.stdDieselL * 1.1) out.push("DIESEL_HIGH");
+  if (t.totalCost === 0) out.push("ZERO_COST");
+  if (t.driverId === null) out.push("NO_DRIVER");
+  if (ctx.rate && t.freight !== ctx.rate.freight) out.push("FREIGHT_MISMATCH");
+  if (ctx.sameDayTrips >= 3) out.push("BUSY_TRAILER");
+  if (/-DUP$/.test(t.lrNo)) out.push("DUP_LR");
+  return out.map((kind) => ({ kind, label: FLAG_LABELS[kind] }));
+}
+
 /** Next LR: highest numeric LR + 1 ("1454", "1435-A" -> "1455"). */
 export async function nextLrNo(db: DbTx): Promise<string> {
   const rows = await db.trip.findMany({ select: { lrNo: true } });

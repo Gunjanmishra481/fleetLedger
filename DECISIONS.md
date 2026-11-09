@@ -39,3 +39,10 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Re-import**: refused if any LR is already in the database, unless "Replace existing trips for <month>" is ticked, which deletes that month's trips first (in the same transaction). One AuditLog row per import.
 - **Test database**: `pnpm test` pushes the schema into a brand-new temp SQLite file each run and deletes it afterwards. Prisma blocks `db push --force-reset` when run by an AI agent, and a fresh file avoids needing a reset at all. Tests never touch `prisma/dev.db`.
 - **`pnpm db:seed`** = `prisma db push` (no reset) + import September with replace-month. Added `tsx` (dev only) to run the TypeScript seed, as Prisma's docs recommend.
+
+## Milestone 4 (partial) — trip actions, register table, flags
+
+- **TanStack Table pinned to v8**: pnpm resolved v9, whose API changed (no `useReactTable`). v8 is the documented, stable API.
+- **`flags()` lives in `trip.ts`** next to `compute()`, as the spec's folder layout says. Flags are warnings only and never block a save: diesel >10% over route standard, zero cost, no driver, freight different from rate card, trailer with 3+ trips that day, imported duplicate LR.
+- **Trip saves** (`src/server/actions/trips.ts`): validate with the shared zod schema in `src/lib/schemas/trip.ts`, recheck LR uniqueness, write money from `compute()`, and write an AuditLog row with a field-by-field old → new diff (CREATE / UPDATE / DELETE).
+- **Excel export** keeps the SEP-26 column order and sheet name (e.g. "SEP-26"), with a SUM totals row.
