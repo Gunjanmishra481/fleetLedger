@@ -13,3 +13,15 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Month default**: with no `?m=`, screens use the current month in IST. The sidebar carries `?m=` across pages.
 - **Money formatting**: `formatINR` shows paise only when the amount has them (`₹15,871`, `₹18,393.32`); pass `{ decimals: true }` to force two decimals in tables.
 - **Sidebar for MVP**: Dashboard, Trips, Drivers, Trailers, Routes, Import, Masters (fast-track list). Billing, Expenses, Salary, Reports, Settings come with phase 4+.
+
+## Milestone 2 — schema and trip service
+
+- **Computed columns are stored** (`dieselAmount`, `totalCost`, `profit` on Trip) so summaries can aggregate in SQL. They are only ever written from `compute()`'s output; nothing else sets them.
+- **Litres are a Float**; `compute()` converts to integer millilitres before multiplying by the paise rate, then rounds to the nearest paisa. Money stays integer paise throughout.
+- **`Trip.driverId` is nullable** so September's 31 driverless trips can be imported and still count in the totals. The trip form requires a driver.
+- **No Consignor table in the MVP.** The loading point (e.g. "OCPL (DETROJ)") is a Location of kind LOADING_POINT and carries the consignor in its name. Add Consignor with billing (phase 4).
+- **LocationAlias table** added alongside DriverAlias, so typos like VADODRA resolve to VADODARA without free text.
+- **Rate card key** = sorted stop location ids joined by "-", so "SURAT + VADODARA" and "VADODARA + SURAT" share a rate.
+- **Serial numbers** run per month (`nextSerialNo`). They are not unique, since the sheet has serial 205 twice.
+- **Next LR** = highest numeric LR + 1 across all trips ("1435-A" counts as 1435).
+- **Usual driver** = the driver with the most trips on that trailer in the 30 days before the trip date; falls back to `Vehicle.usualDriverId`.

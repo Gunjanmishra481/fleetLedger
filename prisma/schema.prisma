@@ -1,4 +1,7 @@
-// Full data model arrives in milestone 2 (SPEC section 4).
+// FleetLedger data model (MVP, SQLite). SPEC section 4.
+// Money columns are integer paise. Enum-like columns are strings (SQLite has no enums).
+// Dates are stored at UTC midnight and treated as date-only.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,4 +9,150 @@ generator client {
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id            Int      @id @default(autoincrement())
+  regNo         String   @unique // upper-case, no spaces
+  ownerType     String   @default("OWN") // OWN | MARKET
+  usualDriverId Int?
+  usualDriver   Driver?  @relation("UsualDriver", fields: [usualDriverId], references: [id], onDelete: SetNull)
+  active        Boolean  @default(true)
+  trips         Trip[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Driver {
+  id        Int           @id @default(autoincrement())
+  name      String        @unique
+  phone     String?
+  active    Boolean       @default(true)
+  aliases   DriverAlias[]
+  trips     Trip[]
+  usualFor  Vehicle[]     @relation("UsualDriver")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+/// Alternative spellings that resolve to a driver (JAWAHIR -> JAVAHIR).
+model DriverAlias {
+  id       Int    @id @default(autoincrement())
+  alias    String @unique
+  driverId Int
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id        Int             @id @default(autoincrement())
+  name      String          @unique
+  kind      String // LOADING_POINT | DESTINATION
+  district  String?
+  aliases   LocationAlias[]
+  originOf  Trip[]
+  stops     TripStop[]
+  rateCards RateCard[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+/// Alternative spellings that resolve to a location (VADODRA -> VADODARA).
+model LocationAlias {
+  id         Int      @id @default(autoincrement())
+  alias      String   @unique
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+}
+
+/// The client dealer on a trip (sheet column DEALER).
+model Dealer {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  city  String?
+  phone String?
+  trips Trip[]
+}
+
+/// Route standards: freight, diesel, allowance and POD per loading point + destination set.
+model RateCard {
+  id              Int       @id @default(autoincrement())
+  originId        Int
+  origin          Location  @relation(fields: [originId], references: [id])
+  destinationKey  String // sorted stop location ids joined by "-"
+  freight         Int // paise
+  stdDieselL      Float
+  driverAllowance Int // paise
+  podCharge       Int // paise
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+
+  @@unique([originId, destinationKey, effectiveFrom])
+  @@index([originId, destinationKey])
+}
+
+model DieselRate {
+  id            Int      @id @default(autoincrement())
+  ratePaise     Int // paise per litre
+  effectiveFrom DateTime @unique
+}
+
+model Trip {
+  id              Int        @id @default(autoincrement())
+  serialNo        Int
+  tripDate        DateTime
+  monthKey        String // YYYY-MM, for month scoping
+  lrNo            String     @unique
+  vehicleId       Int
+  vehicle         Vehicle    @relation(fields: [vehicleId], references: [id])
+  driverId        Int? // nullable only so history with missing drivers can be imported; the form requires it
+  driver          Driver?    @relation(fields: [driverId], references: [id])
+  originId        Int
+  origin          Location   @relation(fields: [originId], references: [id])
+  stops           TripStop[]
+  carsCount       Int
+  dieselL         Float
+  dieselRate      Int // paise per litre
+  podCharge       Int // paise
+  maintenance     Int // paise
+  driverAllowance Int // paise
+  freight         Int // paise
+  // Written only by compute() in src/server/services/trip.ts; stored so summaries can aggregate in SQL.
+  dieselAmount    Int
+  totalCost       Int
+  profit          Int
+  dealerId        Int?
+  dealer          Dealer?    @relation(fields: [dealerId], references: [id])
+  billingStatus   String     @default("UNBILLED") // UNBILLED | INVOICED | PAID
+  notes           String?
+  createdBy       String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([monthKey])
+  @@index([vehicleId, tripDate])
+  @@index([driverId, tripDate])
+}
+
+model TripStop {
+  id         Int      @id @default(autoincrement())
+  tripId     Int
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  locationId Int
+  location   Location @relation(fields: [locationId], references: [id])
+  seq        Int
+
+  @@unique([tripId, seq])
+  @@index([locationId])
+}
+
+model AuditLog {
+  id       Int      @id @default(autoincrement())
+  at       DateTime @default(now())
+  user     String
+  entity   String // Trip, Driver, Import, ...
+  entityId String
+  action   String // CREATE | UPDATE | DELETE | IMPORT
+  changes  String // JSON: { field: [old, new] } or a summary object
+
+  @@index([entity, entityId])
 }
