@@ -13,6 +13,7 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts"],
     exclude: ["tests/e2e/**", "node_modules/**"],
     environment: "node",
+    fileParallelism: false, // test files share one temp database
     globalSetup: ["tests/setup-db.ts"],
     env: { DATABASE_URL: `file:${testDb}` },
   },

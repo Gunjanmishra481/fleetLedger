@@ -54,6 +54,8 @@ for (const vp of VIEWPORTS) {
         ["new-trip", `/trips/new?m=${M}`],
         ["trips", `/trips?m=${M}`],
         ["trailer", trailerHref!],
+        ["masters", "/masters?tab=drivers"],
+        ["masters-rates", "/masters?tab=rates"],
       ];
       const problems: string[] = [];
       for (const [name, url] of pages) {
@@ -88,5 +90,53 @@ test.describe("phone trip entry", () => {
     await expect(page.getByRole("dialog", { name: "Trip saved" })).toBeVisible();
     await page.screenshot({ path: "test-results/screens/phone-flow-saved.png" });
     await expect(page.getByRole("button", { name: "Same trailer again" })).toBeVisible();
+  });
+});
+
+test.describe("masters", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("edit a driver, merge drivers and places, change diesel price", async ({ page }) => {
+    await login(page);
+
+    // Phone number -> Call button on the driver page.
+    await page.goto("/masters?tab=drivers");
+    await page.getByRole("button", { name: "Edit driver JAVAHIR" }).click();
+    await page.getByLabel("Phone").fill("98765 43210");
+    await page.screenshot({ path: "test-results/screens/phone-masters-driver-sheet.png" });
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Edit driver JAVAHIR" })).toContainText("98765 43210");
+
+    // Merge VISHAL (6 trips) into VIKRAM (8 trips): VIKRAM ends with 14, VISHAL becomes a spelling.
+    await page.getByRole("button", { name: "Edit driver VISHAL" }).click();
+    await page.getByRole("dialog").getByPlaceholder("Type the correct name").fill("vikram");
+    await page.getByRole("dialog").getByRole("button", { name: "Vikram" }).click();
+    await page.getByRole("button", { name: "Merge into Vikram" }).click();
+    await page.getByRole("button", { name: /Tap again/ }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Edit driver VIKRAM" })).toContainText("14 trips");
+    await expect(page.getByRole("button", { name: "Edit driver VIKRAM" })).toContainText("also VISHAL");
+    await expect(page.getByRole("button", { name: "Edit driver VISHAL" })).toHaveCount(0);
+
+    // New place, then merge it into Vadodara.
+    await page.goto("/masters?tab=places");
+    await page.getByRole("button", { name: "Add place" }).click();
+    await page.getByLabel("Name").fill("Vadodra Bypass");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await page.getByRole("button", { name: "Edit VADODRA BYPASS" }).click();
+    await page.getByRole("dialog").getByPlaceholder("Type the correct place").fill("vadodara");
+    await page.getByRole("dialog").getByRole("button", { name: "Vadodara", exact: true }).click();
+    await page.getByRole("button", { name: "Merge into Vadodara" }).click();
+    await page.getByRole("button", { name: /Tap again/ }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByRole("button", { name: "Edit VADODARA", exact: true })).toContainText("VADODRA BYPASS");
+
+    // Diesel price from today.
+    await page.goto("/masters?tab=diesel");
+    await page.getByRole("textbox", { name: /Diesel price per litre/ }).fill("99.10");
+    await page.getByRole("button", { name: "Save price" }).click();
+    await expect(page.getByText("₹99.10/L")).toBeVisible();
   });
 });

@@ -119,3 +119,20 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - Checks Home, New trip, Trips and a Trailer page at 390×844, 820×1180, 1180×820 and 1440×900: **no sideways scroll and no tap target under 44px** (inline text links in sentences are exempt, per WCAG 2.5.8). Both are hard failures. Screenshots go to `test-results/screens/` (git-ignored).
 - One phone flow test: trailer → recent route → 7 cars → Check → Save → "Trip saved" sheet with the next-action buttons.
 - Fixes from reviewing the screenshots: Home plates in a 2-column grid instead of 18 rows; **summary screens show whole rupees** (`formatRupees`: ₹3,44,284) while receipts and the trip ticket keep exact paise; plural-aware wording; 44px progress bar, segment controls, calendar days and steppers; the receipt says "Pick a route to see freight" instead of showing a −₹300 "loss" before a route is chosen.
+
+## Masters page
+
+- **`/masters?tab=trailers|drivers|places|dealers|rates|diesel`**, all reached from More. Cards in a fluid grid; tapping one opens an edit sheet (bottom sheet on phone, side panel on PC). Each list has a type-to-filter box.
+- **Writes live in `src/server/services/masters.ts`**; `src/server/actions/masters.ts` wraps them with sign-in, the shared zod schemas (`src/lib/schemas/masters.ts`) and friendly errors. Every change writes an AuditLog row (CREATE / UPDATE / DELETE / MERGE / ALIAS_ADD / ALIAS_REMOVE).
+- **Names are normalised the same way as the importer** (upper-case, single spaces, "X (Y)") and shown in title case. A new name that is already another spelling of someone is refused ("JAWAHIR is another spelling of JAVAHIR").
+- **Trailers and drivers are never deleted**; "Show in new trips" hides them, and their trips stay. Dealers can be deleted only when they're on no trips. Places can't be deleted; use merge.
+- **Merge** (drivers, places): moves every trip (for places also origins, stops and rate cards), makes the old name another spelling, deletes the duplicate, all in one transaction. Merging needs two taps. If a trip already stops at both places it keeps one stop. If a moved rate card collides with an existing card for the same route and date, the existing card wins.
+- **Rate card is versioned by "applies from" date.** A new date adds a version and closes the previous one the day before. The same date corrects that version. Deleting the newest version reopens the previous one. Trips store their own amounts, so a rate change never alters saved trips (tested in `tests/unit/rate-versions.test.ts`).
+- **Multi-drop rate cards show their stops unnumbered** ("Bhuj + Gandhidham"): one rate covers the route in either drop order.
+- **Diesel price**: the same from-date rule; at least one price must remain.
+- **Unit test files now run one at a time** (`fileParallelism: false`) because they share one temp database; the rate test cleans up after itself so the September counts stay exact.
+- **Browser test** (`tests/e2e`): adds a phone number to a driver, merges VISHAL into VIKRAM (14 trips, VISHAL becomes a spelling), adds and merges a place, and sets a diesel price. It runs on the e2e copy of the database, so your data is untouched.
+
+## README
+
+- "Run locally" covers install, `.env` keys, seeding, opening on a phone over Wi-Fi, re-loading data and tests. `pnpm test:e2e` needs `pnpm build` first and reads the login from `.env`.
