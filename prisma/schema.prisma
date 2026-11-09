@@ -1,14 +1,15 @@
-// FleetLedger data model (MVP, SQLite). SPEC section 4.
-// Money columns are integer paise. Enum-like columns are strings (SQLite has no enums).
-// Dates are stored at UTC midnight and treated as date-only.
+// FleetLedger data model. SPEC section 4. Postgres (Neon).
+// Money columns are integer paise. Enum-like columns are strings (kept from the SQLite MVP).
+// Business dates are DATE columns (no time); Prisma reads them as UTC-midnight Dates.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (app runtime)
+  directUrl = env("DIRECT_URL") // direct connection (migrations)
 }
 
 model Vehicle {
@@ -83,8 +84,8 @@ model RateCard {
   stdDieselL      Float
   driverAllowance Int // paise
   podCharge       Int // paise
-  effectiveFrom   DateTime
-  effectiveTo     DateTime?
+  effectiveFrom   DateTime  @db.Date
+  effectiveTo     DateTime? @db.Date
 
   @@unique([originId, destinationKey, effectiveFrom])
   @@index([originId, destinationKey])
@@ -93,13 +94,13 @@ model RateCard {
 model DieselRate {
   id            Int      @id @default(autoincrement())
   ratePaise     Int // paise per litre
-  effectiveFrom DateTime @unique
+  effectiveFrom DateTime @unique @db.Date
 }
 
 model Trip {
   id              Int        @id @default(autoincrement())
   serialNo        Int
-  tripDate        DateTime
+  tripDate        DateTime   @db.Date
   monthKey        String // YYYY-MM, for month scoping
   lrNo            String     @unique
   vehicleId       Int

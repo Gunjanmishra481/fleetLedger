@@ -519,11 +519,11 @@ export async function commitImport(
         rateCardsCreated++;
       }
 
-      // Trips
-      for (const t of preview.trips) {
-        const c = compute(t);
-        await tx.trip.create({
-          data: {
+      // Trips: one bulk insert, then one bulk insert of their stops (few round trips to a remote DB).
+      await tx.trip.createMany({
+        data: preview.trips.map((t) => {
+          const c = compute(t);
+          return {
             serialNo: t.serialNo,
             tripDate: t.tripDate,
             monthKey: t.monthKey,
@@ -545,10 +545,20 @@ export async function commitImport(
             billingStatus: t.billingStatus,
             notes: t.notes,
             createdBy: opts.user,
-            stops: { create: t.stopNames.map((s, i) => ({ locationId: locationId.get(s)!, seq: i + 1 })) },
-          },
-        });
-      }
+          };
+        }),
+      });
+      const tripIds = new Map(
+        (await tx.trip.findMany({ where: { lrNo: { in: preview.trips.map((t) => t.lrNo) } }, select: { id: true, lrNo: true } })).map((r) => [
+          r.lrNo,
+          r.id,
+        ]),
+      );
+      await tx.tripStop.createMany({
+        data: preview.trips.flatMap((t) =>
+          t.stopNames.map((s, i) => ({ tripId: tripIds.get(t.lrNo)!, locationId: locationId.get(s)!, seq: i + 1 })),
+        ),
+      });
 
       // Usual driver = most frequent driver on each trailer in this import.
       for (const [regNo, id] of vehicleId) {

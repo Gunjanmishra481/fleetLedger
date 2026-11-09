@@ -1,11 +1,12 @@
-import { existsSync } from "node:fs";
 import { defineConfig } from "@playwright/test";
+import { loadEnv, newSchemaName, schemaUrl } from "./tests/pg-schema";
 
-// Login credentials for the tests come from the git-ignored .env file.
-if (existsSync(".env")) process.loadEnvFile(".env");
-
-// Responsive check (docs/DESIGN.md). Runs the production build against prisma/e2e.db,
-// a copy of dev.db made by tests/e2e/setup.ts, so saves never touch your data.
+// Responsive check (docs/DESIGN.md). Runs the production build against a brand-new Postgres
+// schema in the Neon dev branch, seeded with September by tests/e2e/setup.ts and dropped after,
+// so saves and merges never touch your data. Login credentials come from the git-ignored .env.
+loadEnv();
+const url = process.env.E2E_DATABASE_URL ?? schemaUrl(newSchemaName("e2e"));
+process.env.E2E_DATABASE_URL = url; // the config is evaluated in several processes; keep one schema
 const PORT = 3210;
 
 export default defineConfig({
@@ -21,6 +22,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/login`,
     timeout: 120_000,
     reuseExistingServer: false,
-    env: { DATABASE_URL: "file:./e2e.db" },
+    env: { DATABASE_URL: url, DIRECT_URL: url },
   },
 });

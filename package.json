@@ -7,10 +7,11 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "test": "vitest run",
-    "db:push": "prisma db push",
     "postinstall": "prisma generate",
-    "db:seed": "prisma db push --skip-generate && tsx prisma/seed.ts",
-    "test:e2e": "playwright test"
+    "db:seed": "prisma migrate deploy && tsx prisma/seed.ts",
+    "test:e2e": "playwright test",
+    "db:migrate": "prisma migrate deploy",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
