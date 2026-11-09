@@ -24,15 +24,20 @@ In `.env`:
 
 | Key | Example | What it is |
 | --- | --- | --- |
-| `DATABASE_URL` | `"file:./dev.db"` | SQLite file, created in `prisma/` |
+| `DATABASE_URL` | Neon **dev** branch, *pooled* URL + `&pgbouncer=true` | What the app uses |
+| `DIRECT_URL` | Neon **dev** branch, *direct* URL | What migrations and tests use |
 | `ADMIN_USER` | `"admin"` | Login name |
 | `ADMIN_PASSWORD` | choose one | Login password |
 | `AUTH_SECRET` | any long random text | Optional; signs the login cookie. If empty, the password is used, so changing the password signs everyone out |
 
+Get both URLs from the Neon console (project **fleetledger** → branch **dev** → Connect) or with
+`npx neonctl connection-string dev --pooled` / `npx neonctl connection-string dev`. Use the
+**dev** branch locally, never **main**: main is the live data.
+
 `.env` is git-ignored. Never commit it.
 
 ```bash
-# 3. Create the database and load September 2026 from the sample sheet
+# 3. Create the tables (migrations) and load September 2026 from the sample sheet
 pnpm db:seed
 
 # 4. Start the app
@@ -59,12 +64,12 @@ HTTPS (i.e. after deployment); on a local IP it still works in the browser.
 - `pnpm db:seed` re-imports September from `tests/fixtures/SEP_LOADING_DETAILS-26.xlsx`.
   It replaces only September's trips; masters, rate cards and other months are kept.
 - Other months: **More → Import** in the app, upload the month's `.xlsx`, check the preview, import.
-- To start completely fresh, stop the app, delete `prisma/dev.db`, and run `pnpm db:seed`.
+- To start completely fresh, reset the **dev** branch from the Neon console (Branches → dev → Reset from parent) and run `pnpm db:seed`.
 
 ### Tests
 
 ```bash
-pnpm test        # money maths, rate versions and the September import (uses a throwaway database)
+pnpm test        # money maths, rate versions and the September import
 ```
 
 Browser checks (screens at phone/tablet/PC sizes, trip entry, masters):
@@ -72,10 +77,12 @@ Browser checks (screens at phone/tablet/PC sizes, trip entry, masters):
 ```bash
 npx playwright install chromium   # first time only
 pnpm build
-pnpm test:e2e                     # runs against a copy of dev.db; screenshots in test-results/screens
+pnpm test:e2e                     # screenshots in test-results/screens
 ```
 
-`pnpm test:e2e` reads the login from `.env` and needs `pnpm db:seed` to have been run.
+Both test commands create a brand-new schema in the Neon **dev** branch, build it from the
+migrations (the browser tests also load September), and drop it at the end, so they never touch
+your dev data or production. They need `DIRECT_URL` and the login in `.env`.
 
 ## Scripts
 
@@ -83,10 +90,27 @@ pnpm test:e2e                     # runs against a copy of dev.db; screenshots i
 | --- | --- |
 | `pnpm dev` | Development server on port 3000 |
 | `pnpm build` / `pnpm start` | Production build / serve it |
-| `pnpm db:push` | Apply `prisma/schema.prisma` to the database (no data loss for additive changes) |
-| `pnpm db:seed` | Create tables if needed and import September 2026 |
+| `pnpm db:migrate` | Apply new migrations in `prisma/migrations` (never deletes data) |
+| `pnpm db:seed` | Migrate, then import September 2026 (replaces September only) |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm test:e2e` | Browser tests (Playwright); build first |
+
+## Deployment (Vercel + Neon)
+
+Live at **https://fleetledger.vercel.app** (sign in as `admin` with the production password).
+
+- **Hosting:** Vercel project `fleetledger`, region `sin1` (Singapore), connected to this GitHub
+  repo: **every push to `main` deploys to production.** Build = `pnpm vercel-build`
+  (`prisma generate && prisma migrate deploy && next build`), so new migrations apply on deploy.
+- **Database:** Neon project `fleetledger` in `aws-ap-southeast-1` (Singapore). Branch **main** =
+  production data; branch **dev** = local development and tests.
+- **Production settings** live in Vercel → Project → Settings → Environment Variables:
+  `DATABASE_URL` (main, pooled), `DIRECT_URL` (main, direct), `ADMIN_USER`, `ADMIN_PASSWORD`,
+  `AUTH_SECRET`. Changing the password or secret there signs everyone out; redeploy to apply.
+- **Changing the data model:** edit `prisma/schema.prisma`, then create a migration with
+  `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script`
+  saved as `prisma/migrations/<NNNN_name>/migration.sql`; check it with `pnpm test`, commit, push.
+- **Backups:** Neon keeps a short point-in-time history of the main branch (hours on the free plan; restore from the Neon console). Also keep the monthly Excel export (Trips → Excel) as an offline copy.
 
 ## Where things live
 

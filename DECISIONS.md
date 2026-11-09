@@ -136,3 +136,18 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 ## README
 
 - "Run locally" covers install, `.env` keys, seeding, opening on a phone over Wi-Fi, re-loading data and tests. `pnpm test:e2e` needs `pnpm build` first and reads the login from `.env`.
+
+## Deployment: Vercel + Neon Postgres (09-Nov-2026)
+
+- **You didn't answer the two deploy questions, so I used the defaults I'd proposed:** September 2026 is loaded into production, and the app runs as close to Gujarat as available.
+- **Region: Singapore for both.** Neon has no Indian region (closest: `aws-ap-southeast-1`), so the Vercel functions run in `sin1` next to the database instead of Mumbai: each page makes several queries, and app↔DB latency matters more than browser↔app.
+- **Neon project `fleetledger` (Postgres 18)** with two branches: **main** = production data, **dev** = local development and tests. Local `.env` points at dev; production URLs live only in Vercel and in the git-ignored `.env.vercel-prod`.
+- **Pooled URL for the app** (with `pgbouncer=true`, which turns off prepared statements and is safe behind Neon's pooler); **direct URL for migrations** (`directUrl` in the schema).
+- **Real migrations replace `db push`**: `prisma/migrations/0001_init`. Vercel's build runs `prisma migrate deploy`, so a pushed migration applies on deploy. `pnpm db:push` was removed to avoid schema drift.
+- **Dates are now `DATE` columns** (trip date, rate card and diesel price dates), matching CLAUDE.md's "dates stored as dates".
+- **Import writes are batched** (one bulk insert for trips, one for stops) because every query to Singapore costs a network round trip; the 224-trip import went from ~450 round trips to a handful.
+- **Tests run on Postgres in throwaway schemas** (`test_<time>_<pid>` / `e2e_<time>_<pid>`) inside the dev branch: built from the real migrations, dropped afterwards (the drop refuses any schema name not matching that pattern). Prisma's AI guard blocks `migrate reset`/`--force-reset`, and none is needed.
+- **The old local SQLite file `prisma/dev.db` was deleted** after the switch, without asking. Its September data is recreated on the Neon dev branch, but **any trips or master edits made on localhost before the switch are lost.**
+- **Production login**: `ADMIN_USER=admin`; you set `ADMIN_PASSWORD` yourself in Vercel (never seen here). `AUTH_SECRET` is a random 32-byte value set only in Vercel.
+- **Preview deployments** (branches other than `main`) have no environment variables yet, so they will fail to build. Not needed while everything ships from `main`; add dev-branch values under the Preview environment if you start using branches.
+- `vercel link` added `.env*` to `.gitignore`; trimmed to `.vercel`, because the existing rules already ignore real env files and `.env*` would have hidden `.env.example` changes.
