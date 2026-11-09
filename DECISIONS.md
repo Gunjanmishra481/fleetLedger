@@ -25,3 +25,17 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Serial numbers** run per month (`nextSerialNo`). They are not unique, since the sheet has serial 205 twice.
 - **Next LR** = highest numeric LR + 1 across all trips ("1435-A" counts as 1435).
 - **Usual driver** = the driver with the most trips on that trailer in the 30 days before the trip date; falls back to `Vehicle.usualDriverId`.
+
+## Milestone 3 — September import
+
+- **Duplicate LR 1384**: both trips are real revenue, so both are imported. The second becomes `1384-DUP`, with a note on the trip and an issue in the preview. **Check which trailer really owns LR 1384** and fix the other trip's LR.
+- **Name merges applied automatically** (shown in the preview as "Names merged"): JAWAHIR → JAVAHIR, VADODRA → VADODARA, AHM → AHMEDABAD, and **PIPAVA PORT → PIPAVAV PORT** (the spec spells it Pipavav; check that's right). Spacing variants such as "OCPL(DETROJ)" and "OCPL (DETROJ)" collapse to "OCPL (DETROJ)". The merges are saved as DriverAlias / LocationAlias rows, so later imports reuse them.
+- **No interactive mapping step yet**: the preview lists every new trailer, driver, location and dealer that will be created, but you can't remap them in the UI. Unknown names are created as new masters. A mapping step can come with the masters screens.
+- **Rate card from import**: per route, the most common freight, diesel litres, allowance and POD, taken only from trips that have costs (zero-cost trips are skipped). Effective from the 1st of the imported month; existing routes are not overwritten.
+- **Diesel rate**: the most common non-zero rate in the month (₹98.36), effective from the 1st of that month.
+- **Usual driver per trailer** is set to its most frequent driver in the import.
+- **All imported vehicles are OWN.** PB10GK0807 is likely a market vehicle (per the spec); change it once a masters screen exists.
+- **REMARK "INVOICE DONE"** → billing status INVOICED; blank → UNBILLED. Any other remark text goes into trip notes.
+- **Re-import**: refused if any LR is already in the database, unless "Replace existing trips for <month>" is ticked, which deletes that month's trips first (in the same transaction). One AuditLog row per import.
+- **Test database**: `pnpm test` pushes the schema into a brand-new temp SQLite file each run and deletes it afterwards. Prisma blocks `db push --force-reset` when run by an AI agent, and a fresh file avoids needing a reset at all. Tests never touch `prisma/dev.db`.
+- **`pnpm db:seed`** = `prisma db push` (no reset) + import September with replace-month. Added `tsx` (dev only) to run the TypeScript seed, as Prisma's docs recommend.
