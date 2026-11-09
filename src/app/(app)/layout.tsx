@@ -1,45 +1,31 @@
 import { Suspense } from "react";
-import { cookies } from "next/headers";
-import { LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MonthPicker } from "@/components/shell/month-picker";
-import { Sidebar } from "@/components/shell/sidebar";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
-import { logout } from "../login/actions";
+import { BottomBar, Rail } from "@/components/shell/app-nav";
+import { MonthChip } from "@/components/shell/month-chip";
+import { GlobalShortcuts } from "@/components/shell/global-shortcuts";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value);
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-52 shrink-0 border-r bg-sidebar md:block">
-        <div className="flex h-14 items-center border-b px-5 font-semibold tracking-tight">FleetLedger</div>
-        <Suspense>
-          <Sidebar />
-        </Suspense>
-      </aside>
+    <div className="flex min-h-dvh">
+      <Suspense>
+        <Rail />
+      </Suspense>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between gap-4 border-b px-4">
-          <span className="font-semibold md:hidden">FleetLedger</span>
-          <Suspense>
-            <MonthPicker />
-          </Suspense>
-          <form action={logout} className="flex items-center gap-2">
-            <span className="hidden text-sm text-muted-foreground sm:inline">{user}</span>
-            <Button variant="ghost" size="sm" type="submit">
-              <LogOut className="size-4" />
-              Sign out
-            </Button>
-          </form>
+        <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center justify-between gap-3 px-[clamp(1rem,3vw,2rem)]">
+            <span className="text-lg font-semibold tracking-tight lg:invisible">FleetLedger</span>
+            <Suspense>
+              <MonthChip />
+            </Suspense>
+          </div>
         </header>
-        <div className="border-b md:hidden">
-          <Suspense>
-            <div className="overflow-x-auto [&_nav]:flex-row">
-              <Sidebar />
-            </div>
-          </Suspense>
-        </div>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="app-main mx-auto w-full max-w-[1200px] flex-1 px-[clamp(1rem,3vw,2rem)] pt-[clamp(1rem,2.5vw,1.75rem)]">
+          {children}
+        </main>
       </div>
+      <Suspense>
+        <BottomBar />
+        <GlobalShortcuts />
+      </Suspense>
     </div>
   );
 }

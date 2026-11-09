@@ -46,3 +46,12 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **`flags()` lives in `trip.ts`** next to `compute()`, as the spec's folder layout says. Flags are warnings only and never block a save: diesel >10% over route standard, zero cost, no driver, freight different from rate card, trailer with 3+ trips that day, imported duplicate LR.
 - **Trip saves** (`src/server/actions/trips.ts`): validate with the shared zod schema in `src/lib/schemas/trip.ts`, recheck LR uniqueness, write money from `compute()`, and write an AuditLog row with a field-by-field old → new diff (CREATE / UPDATE / DELETE).
 - **Excel export** keeps the SEP-26 column order and sheet name (e.g. "SEP-26"), with a SUM totals row.
+
+## Design build (docs/DESIGN.md) — step 1: shell
+
+- **Navigation by screen**: the bottom bar and the rail are both rendered and switched by CSS media queries (`.nav-bottom` / `.nav-rail` in globals.css), so nothing depends on JS measuring the window. Phone, and tablet in portrait: bottom bar with a raised "+ Trip". 640–1023px in landscape (including phones held sideways): icon rail. ≥1024px: rail with labels.
+- **Tabs**: Home = `/dashboard`, Trips, + Trip = `/trips/new`, Fleet = `/fleet` (trailers, drivers and routes), More = `/more` (Routes, Import, Masters, Sign out). `/trailers` and `/drivers` redirect to the matching Fleet tab. Routes is reachable from both Fleet and More.
+- **Dark mode follows the device setting** (`prefers-color-scheme`); there is no manual toggle.
+- **Theme**: deep teal primary, warm off-white background, 16px radius, plus `profit` / `warn` / `loss` / `plate` colour tokens in globals.css.
+- **Sign out** moved to More on every screen size, so the top bar holds only the month chip.
+- **ResponsiveSheet** is a small custom component (focus trap, Escape, scroll lock) rather than a new dialog library: a bottom sheet below 1024px; at 1024px+ a dialog, side panel or popover.

@@ -4,7 +4,6 @@ import { Download, Plus } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { TripFilters } from "@/components/trips/trip-filters";
 import { TripsTable } from "@/components/trips/trips-table";
-import { Shortcuts } from "@/components/trips/shortcuts";
 import { formatMonthKey } from "@/lib/format";
 import { listTrips, masterOptions, parseTripFilters } from "@/server/queries/trips";
 import { monthFlags } from "@/server/services/summary";
@@ -27,7 +26,6 @@ export default async function TripsPage({
 
   return (
     <div className="space-y-3">
-      <Shortcuts newHref={`/trips/new?m=${f.m}`} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Trips · {formatMonthKey(f.m)}</h1>
         <div className="flex gap-2">

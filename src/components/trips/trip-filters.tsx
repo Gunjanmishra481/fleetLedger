@@ -30,7 +30,7 @@ export function TripFilters({ options }: { options: MasterOptions }) {
         className={`${sel} w-28`}
         onKeyDown={(e) => e.key === "Enter" && set("q", e.currentTarget.value.trim())}
         aria-label="Search LR number"
-        id="trip-search"
+        data-search
       />
       <select className={sel} value={v("vehicle")} onChange={(e) => set("vehicle", e.target.value)} aria-label="Trailer">
         <option value="">All trailers</option>

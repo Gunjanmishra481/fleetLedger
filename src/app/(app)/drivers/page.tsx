@@ -1,5 +1,6 @@
-import { Placeholder } from "@/components/shell/placeholder";
+import { redirect } from "next/navigation";
 
-export default function DriversPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  return <Placeholder title="Drivers" searchParams={searchParams} comingIn="milestone 5" />;
+export default async function Page({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
+  const { m } = await searchParams;
+  redirect(`/fleet?tab=drivers${m ? `&m=${m}` : ""}`);
 }
