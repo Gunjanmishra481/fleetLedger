@@ -152,7 +152,7 @@ export function TripFlow({
     return { input, ...compute(input) };
   }, [dieselL, dieselRate, pod, maint, allowance, freight]);
 
-  const receipt = money && { ...money.input, dieselAmount: money.dieselAmount, totalCost: money.totalCost, profit: money.profit };
+  const receipt = money && freight.trim() !== "" && { ...money.input, dieselAmount: money.dieselAmount, totalCost: money.totalCost, profit: money.profit };
   const dieselRatio = hint?.stdDieselL && money ? money.input.dieselL / hint.stdDieselL : null;
 
   // ---- step validity ----
@@ -300,13 +300,9 @@ export function TripFlow({
         </div>
         <div className="grid grid-cols-4 gap-1.5">
           {STEPS.map((s, i) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStep(i)}
-              aria-label={`Go to ${s}`}
-              className={cn("h-2 rounded-full transition-colors", i <= step ? "bg-primary" : "bg-muted")}
-            />
+            <button key={s} type="button" onClick={() => setStep(i)} aria-label={`Go to ${s}`} className="flex min-h-11 items-center">
+              <span className={cn("h-2 w-full rounded-full transition-colors", i <= step ? "bg-primary" : "bg-muted")} />
+            </button>
           ))}
         </div>
       </div>
@@ -644,7 +640,11 @@ export function TripFlow({
             {driver && <p className="text-sm">Driver: <span className="font-medium">{displayName(driver.name)}</span></p>}
             <RouteLine origin={locName(originId)} stops={stopIds.map((s) => locName(s) ?? "?")} />
           </div>
-          {receipt && <LiveReceipt {...receipt} />}
+          {receipt ? (
+            <LiveReceipt {...receipt} />
+          ) : (
+            <div className="card-surface p-5 text-sm text-muted-foreground">Pick a route to see freight, cost and profit.</div>
+          )}
           <button type="button" onClick={() => void save()} disabled={saving} className={cn(primaryBtn, "w-full")}>
             <Check className="size-5" /> {saving ? "Saving…" : saveLabel}
           </button>
@@ -654,10 +654,12 @@ export function TripFlow({
       {/* Phone + tablet: receipt docked above the tab bar */}
       <div className="fixed inset-x-0 bottom-[var(--dock-bottom)] z-20 px-3 lg:hidden">
         <div className="card-surface mx-auto max-w-3xl space-y-2 p-3 shadow-xl ring-1 ring-border">
-          {money ? (
-            <LiveReceipt {...receipt!} compact />
+          {receipt ? (
+            <LiveReceipt {...receipt} compact />
           ) : (
-            <p className="text-center text-sm text-loss">Check the amounts</p>
+            <p className={cn("py-1 text-center text-sm", money ? "text-muted-foreground" : "text-loss")}>
+              {money ? "Pick a route to see freight and profit" : "Check the amounts"}
+            </p>
           )}
           <div className="flex gap-2 sm:hidden">
             {step > 0 && (

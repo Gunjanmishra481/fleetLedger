@@ -3,7 +3,7 @@ import { AlertTriangle, ChevronRight, Plus } from "lucide-react";
 import { KpiCard, delta } from "@/components/fl/kpi-card";
 import { NumberPlate } from "@/components/fl/number-plate";
 import { EmptyMonth, SectionCard } from "@/components/fl/summary-bits";
-import { formatINR, formatLakh, formatMonthKey, formatNumber, istToday } from "@/lib/format";
+import { plural, formatRupees, formatLakh, formatMonthKey, formatNumber, istToday } from "@/lib/format";
 import { parseMonth } from "@/lib/month";
 import { cn } from "@/lib/utils";
 import { dashboard, fleetToday, latestMonthWithTrips } from "@/server/services/summary";
@@ -17,6 +17,24 @@ const FIX: Record<string, { href: (m: string) => string; cta: string }> = {
   FREIGHT_MISMATCH: { href: (m) => `/trips?m=${m}&flagged=1`, cta: "Review" },
   BUSY_TRAILER: { href: (m) => `/trips?m=${m}&flagged=1`, cta: "Review" },
 };
+
+/** Plural-aware wording for flag counts on Home. */
+function flagText(kind: string, n: number, label: string) {
+  const one = n === 1;
+  const text: Record<string, string> = {
+    NO_DRIVER: one ? "trip has no driver" : "trips have no driver",
+    ZERO_COST: one ? "trip has revenue but no cost" : "trips have revenue but no cost",
+    DIESEL_HIGH: one ? "trip used >10% more diesel than standard" : "trips used >10% more diesel than standard",
+    FREIGHT_MISMATCH: one ? "trip has freight different from the rate card" : "trips have freight different from the rate card",
+    BUSY_TRAILER: one ? "trip is a trailer’s 3rd+ that day" : "trips are a trailer’s 3rd+ that day",
+    DUP_LR: one ? "trip has a duplicate LR from the sheet" : "trips have duplicate LRs from the sheet",
+  };
+  return (
+    <>
+      <span className="num font-semibold">{n}</span> {text[kind] ?? label.toLowerCase()}
+    </>
+  );
+}
 
 function greeting() {
   const h = (new Date().getUTCHours() + 5.5) % 24;
@@ -53,7 +71,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </span>
         }
       >
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(9.75rem,100%),1fr))]">
           {[...onTrip, ...idle].map((v) => {
             const busy = v.tripsToday > 0;
             return (
@@ -61,7 +79,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 key={v.id}
                 href={busy ? `/trailers/${v.id}${q}` : `/trips/new?vehicle=${v.id}&m=${m}`}
                 className={cn(
-                  "inline-flex min-h-12 items-center gap-2 rounded-xl border bg-card py-1.5 pr-3 pl-1.5 transition-colors hover:border-primary/50",
+                  "flex min-h-12 items-center justify-between gap-2 rounded-xl border bg-card py-1.5 pr-3 pl-1.5 transition-colors hover:border-primary/50",
                   !busy && "border-dashed",
                 )}
                 title={busy ? `${v.regNo}: ${v.tripsToday} trip(s) today` : `${v.regNo} is idle: tap to log a trip`}
@@ -131,7 +149,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                         <span className="flex min-w-0 items-center gap-2 text-sm">
                           <AlertTriangle className="size-4 shrink-0 text-warn" />
                           <span>
-                            <span className="num font-semibold">{f.count}</span> {f.label.toLowerCase()}
+                            {flagText(f.kind, f.count, f.label)}
                           </span>
                         </span>
                         {fix && (
@@ -145,7 +163,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   {k.unbilled > 0 && (
                     <li className="flex items-center justify-between gap-3 py-2">
                       <span className="text-sm">
-                        <span className="num font-semibold">{formatINR(k.unbilled)}</span> not invoiced yet
+                        <span className="num font-semibold">{formatRupees(k.unbilled)}</span> not invoiced yet
                       </span>
                       <Link href={`/trips${q}&status=UNBILLED`} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground">
                         See trips
@@ -156,7 +174,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               )}
             </SectionCard>
 
-            <SectionCard title="Best trailers" action={<Link href={`/fleet${q}`} className="text-sm font-medium text-primary">Fleet</Link>}>
+            <SectionCard title="Best trailers" action={<Link href={`/fleet${q}`} className="-my-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-primary">Fleet</Link>}>
               <ul className="space-y-1">
                 {d.top.map((t, i) => (
                   <li key={t.vehicleId}>
@@ -164,8 +182,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       <span className="num w-5 text-sm text-muted-foreground">{i + 1}</span>
                       <NumberPlate regNo={t.regNo} size="sm" />
                       <span className="num ml-auto text-right text-sm">
-                        <span className="block font-semibold text-profit">{formatINR(t.profit)}</span>
-                        <span className="block text-xs text-muted-foreground">{t.trips} trips</span>
+                        <span className="block font-semibold text-profit">{formatRupees(t.profit)}</span>
+                        <span className="block text-xs text-muted-foreground">{plural(t.trips, "trip")}</span>
                       </span>
                     </Link>
                   </li>
@@ -180,8 +198,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     <Link href={`/trailers/${t.vehicleId}${q}`} className="flex min-h-12 items-center gap-3 rounded-lg px-1 hover:bg-muted">
                       <NumberPlate regNo={t.regNo} size="sm" />
                       <span className="num ml-auto text-right text-sm">
-                        <span className={cn("block font-semibold", t.profit < 0 ? "text-loss" : "text-foreground")}>{formatINR(t.profit)}</span>
-                        <span className="block text-xs text-muted-foreground">{t.trips} trips</span>
+                        <span className={cn("block font-semibold", t.profit < 0 ? "text-loss" : "text-foreground")}>{formatRupees(t.profit)}</span>
+                        <span className="block text-xs text-muted-foreground">{plural(t.trips, "trip")}</span>
                       </span>
                     </Link>
                   </li>

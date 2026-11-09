@@ -68,3 +68,13 @@ export function displayName(s: string): string {
     .replace(/\b([a-z])([a-z]*)/g, (_, a: string, b: string) => a.toUpperCase() + b)
     .replace(/\b(Ocpl|Jkti|Apl|Tci|Ahm)\b/g, (w) => w.toUpperCase());
 }
+
+/** Whole rupees for summaries and cards (₹3,44,284); receipts keep exact paise via formatINR. */
+export function formatRupees(paise: Paise): string {
+  return formatINR(paise, { decimals: false });
+}
+
+/** "1 trip", "3 trips" */
+export function plural(n: number, word: string, many = `${word}s`): string {
+  return `${n} ${n === 1 ? word : many}`;
+}

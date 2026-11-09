@@ -45,14 +45,14 @@ export function Stepper({
       <button type="button" className={btn} onClick={() => bump(-step)} disabled={Number.isFinite(n) && n <= min} aria-label={`Decrease ${label}`}>
         <Minus className="size-5" />
       </button>
-      <label className="flex h-11 min-w-0 flex-1 items-center gap-1 rounded-xl border bg-card px-3 focus-within:border-primary">
+      <label className="flex h-12 min-w-0 flex-1 items-center gap-1 rounded-xl border bg-card px-3 focus-within:border-primary">
         <span className="sr-only">{label}</span>
         {prefix && <span className="text-muted-foreground">{prefix}</span>}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value.replace(decimals ? /[^\d.]/g : /\D/g, ""))}
           inputMode={decimals ? "decimal" : "numeric"}
-          className="num w-full min-w-0 bg-transparent text-center text-base font-semibold outline-none"
+          className="num h-full w-full min-w-0 bg-transparent text-center text-base font-semibold outline-none"
         />
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </label>

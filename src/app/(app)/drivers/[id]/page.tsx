@@ -4,7 +4,7 @@ import { ChevronLeft, Phone } from "lucide-react";
 import { NumberPlate } from "@/components/fl/number-plate";
 import { RouteLine } from "@/components/fl/route-line";
 import { EmptyMonth, MonthCalendar, SectionCard } from "@/components/fl/summary-bits";
-import { displayName, formatINR, formatMonthKey, formatNumber, initials } from "@/lib/format";
+import { plural, displayName, formatRupees, formatMonthKey, formatNumber, initials } from "@/lib/format";
 import { parseMonth } from "@/lib/month";
 import { dayCounts, driverSummary, latestMonthWithTrips } from "@/server/services/summary";
 
@@ -53,19 +53,19 @@ export default async function DriverPage({ params, searchParams }: { params: Pro
           <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr))]">
             <div className="card-surface p-5">
               <p className="text-sm text-muted-foreground">Allowance earned</p>
-              <p className="num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight">{formatINR(t.allowance)}</p>
+              <p className="num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight">{formatRupees(t.allowance)}</p>
               <p className="num text-sm text-muted-foreground">
                 {t.trips} trips · {formatNumber(t.cars)} cars · {s.activeDays} days
               </p>
             </div>
             <div className="card-surface p-5">
               <p className="text-sm text-muted-foreground">Balance due</p>
-              <p className="num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight text-primary">{formatINR(balanceDue)}</p>
+              <p className="num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight text-primary">{formatRupees(balanceDue)}</p>
               <p className="text-sm text-muted-foreground">Advances and payments are not recorded yet</p>
             </div>
             <div className="card-surface p-5">
               <p className="text-sm text-muted-foreground">Profit from their trips</p>
-              <p className={`num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight ${t.profit < 0 ? "text-loss" : "text-profit"}`}>{formatINR(t.profit)}</p>
+              <p className={`num text-[clamp(1.75rem,1.4rem+1.5vw,2.5rem)] font-bold tracking-tight ${t.profit < 0 ? "text-loss" : "text-profit"}`}>{formatRupees(t.profit)}</p>
               <Link href={`/trips${q}&driver=${driverId}`} className="text-sm font-medium text-primary">
                 See trips →
               </Link>
@@ -82,7 +82,7 @@ export default async function DriverPage({ params, searchParams }: { params: Pro
                   <li key={v.name}>
                     <Link href={`/trailers/${v.id}${q}`} className="flex min-h-12 items-center justify-between gap-3 rounded-lg px-1 hover:bg-muted">
                       <NumberPlate regNo={v.name} size="sm" />
-                      <span className="num text-sm text-muted-foreground">{v.trips} trips</span>
+                      <span className="num text-sm text-muted-foreground">{plural(v.trips, "trip")}</span>
                     </Link>
                   </li>
                 ))}

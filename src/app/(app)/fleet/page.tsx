@@ -2,7 +2,7 @@ import Link from "next/link";
 import { RouteCards } from "@/components/fleet/route-cards";
 import { NumberPlate } from "@/components/fl/number-plate";
 import { TileGrid } from "@/components/fl/tile-grid";
-import { displayName, formatINR, formatMonthKey, initials } from "@/lib/format";
+import { plural, displayName, formatRupees, formatMonthKey, initials } from "@/lib/format";
 import { parseMonth } from "@/lib/month";
 import { cn } from "@/lib/utils";
 import { driverList, routeSummary, trailerList } from "@/server/services/summary";
@@ -32,7 +32,7 @@ export default async function FleetPage({ searchParams }: { searchParams: Promis
               key={t.key}
               href={`/fleet?tab=${t.key}&m=${m}`}
               aria-current={tab === t.key ? "page" : undefined}
-              className={cn("inline-flex min-h-10 items-center rounded-lg px-4 text-sm font-medium", tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground")}
+              className={cn("inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium", tab === t.key ? "bg-card shadow-sm" : "text-muted-foreground")}
             >
               {t.label}
             </Link>
@@ -59,8 +59,8 @@ async function Trailers({ m, q }: { m: string; q: string }) {
           </div>
           <p className="truncate text-sm text-muted-foreground">{v.usualDriver ? displayName(v.usualDriver) : "No usual driver"}</p>
           <div className="num flex items-baseline justify-between text-sm">
-            <span>{v.trips} trips</span>
-            <span className={cn("font-semibold", v.profit < 0 ? "text-loss" : "text-profit")}>{formatINR(v.profit)}</span>
+            <span>{plural(v.trips, "trip")}</span>
+            <span className={cn("font-semibold", v.profit < 0 ? "text-loss" : "text-profit")}>{formatRupees(v.profit)}</span>
           </div>
           <div>
             <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
@@ -94,7 +94,7 @@ async function Drivers({ m, q }: { m: string; q: string }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{displayName(d.name)}</span>
               <span className="num block text-sm text-muted-foreground">
-                {d.trips} trips · {formatINR(d.allowance)} allowance
+                {plural(d.trips, "trip")} · {formatRupees(d.allowance)} allowance
               </span>
             </span>
           </Link>

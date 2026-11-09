@@ -7,7 +7,7 @@ import { Copy, Ellipsis, Eye, Pencil } from "lucide-react";
 import { CarIcons } from "@/components/fl/car-count";
 import { NumberPlate } from "@/components/fl/number-plate";
 import { RouteLine } from "@/components/fl/route-line";
-import { displayName, formatINR } from "@/lib/format";
+import { displayName, formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TripTableRow } from "./trips-table";
 
@@ -67,10 +67,10 @@ export function TripCard({
             <span className="num">LR {t.lrNo}</span>
           </span>
           <span className="flex items-center gap-2">
-            <span className="num text-sm text-muted-foreground">{formatINR(t.freight)}</span>
+            <span className="num text-sm text-muted-foreground">{formatRupees(t.freight)}</span>
             <span className={cn("num rounded-full px-2.5 py-0.5 text-sm font-semibold", t.profit < 0 ? "bg-loss-soft text-loss" : "bg-profit-soft text-profit")}>
               {t.profit < 0 ? "" : "+"}
-              {formatINR(t.profit)}
+              {formatRupees(t.profit)}
             </span>
           </span>
         </div>

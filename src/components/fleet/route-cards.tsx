@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RouteLine } from "@/components/fl/route-line";
 import { TileGrid } from "@/components/fl/tile-grid";
-import { formatINR, formatNumber } from "@/lib/format";
+import { formatRupees, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { routeSummary } from "@/server/services/summary";
 
@@ -27,13 +27,13 @@ export function RouteCards({ routes, month }: { routes: Route[]; month: string }
                 {r.trips} trip{r.trips > 1 ? "s" : ""} · {formatNumber(r.cars)} cars
               </span>
               <span className={cn("num rounded-full px-2.5 py-0.5 text-sm font-semibold", r.profit < 0 ? "bg-loss-soft text-loss" : "bg-profit-soft text-profit")}>
-                {formatINR(r.profit)}
+                {formatRupees(r.profit)}
               </span>
             </div>
             <dl className="num grid grid-cols-3 gap-2 border-t pt-3 text-xs">
               <div>
                 <dt className="text-muted-foreground">Freight</dt>
-                <dd className="font-semibold">{r.rateFreight !== null ? formatINR(r.rateFreight) : formatINR(Math.round(r.freight / r.trips))}</dd>
+                <dd className="font-semibold">{r.rateFreight !== null ? formatRupees(r.rateFreight) : formatRupees(Math.round(r.freight / r.trips))}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Diesel avg</dt>

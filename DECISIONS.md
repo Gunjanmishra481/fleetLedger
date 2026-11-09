@@ -111,3 +111,11 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - Middleware lets the manifest and icons through without a session; the phone fetches them before anyone signs in.
 - **No service worker / offline mode**: the brief asks for "installable", and Chrome no longer requires a service worker for installation. Offline trip entry would need a sync design; deferred.
 - **Dates**: CLAUDE.md says dates are "shown dd-MMM-yy"; the newer design brief overrides that for UI ("Today", "Yesterday", "01 Sep"). The trip ticket shows both, and the Excel export keeps dd-mmm-yy.
+
+## Design step 8: responsive check
+
+- **`pnpm test:e2e`** (Playwright, Chromium): run `pnpm build` first. It starts `next start` on port 3210 against **`prisma/e2e.db`, a fresh copy of dev.db**, so the test trip it saves never lands in your data. Playwright stops the server afterwards.
+- **Credentials come from `.env`** (loaded in `playwright.config.ts`). The test file has no password in it; it fails with a clear message if `.env` is missing them.
+- Checks Home, New trip, Trips and a Trailer page at 390×844, 820×1180, 1180×820 and 1440×900: **no sideways scroll and no tap target under 44px** (inline text links in sentences are exempt, per WCAG 2.5.8). Both are hard failures. Screenshots go to `test-results/screens/` (git-ignored).
+- One phone flow test: trailer → recent route → 7 cars → Check → Save → "Trip saved" sheet with the next-action buttons.
+- Fixes from reviewing the screenshots: Home plates in a 2-column grid instead of 18 rows; **summary screens show whole rupees** (`formatRupees`: ₹3,44,284) while receipts and the trip ticket keep exact paise; plural-aware wording; 44px progress bar, segment controls, calendar days and steppers; the receipt says "Pick a route to see freight" instead of showing a −₹300 "loss" before a route is chosen.

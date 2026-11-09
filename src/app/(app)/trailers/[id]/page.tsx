@@ -6,7 +6,7 @@ import { NumberPlate } from "@/components/fl/number-plate";
 import { BarList, EmptyMonth, MonthCalendar, SectionCard } from "@/components/fl/summary-bits";
 import { TileGrid } from "@/components/fl/tile-grid";
 import { TripCard } from "@/components/trips/trip-card";
-import { displayName, formatINR, formatLakh, formatMonthKey, formatNumber } from "@/lib/format";
+import { plural, displayName, formatRupees, formatLakh, formatMonthKey, formatNumber } from "@/lib/format";
 import { parseMonth } from "@/lib/month";
 import { listTrips } from "@/server/queries/trips";
 import { dayCounts, latestMonthWithTrips, monthFlags, trailerSummary } from "@/server/services/summary";
@@ -54,8 +54,8 @@ export default async function TrailerPage({ params, searchParams }: { params: Pr
             <KpiCard label="Trips" value={formatNumber(t.trips)} href={`/trips${q}&vehicle=${vehicleId}`} />
             <KpiCard label="Active days" value={`${Math.round(s.utilisation * 100)}%`} />
             <KpiCard label="Revenue" value={formatLakh(t.freight)} />
-            <KpiCard label="Profit" value={formatINR(t.profit)} tone={t.profit < 0 ? "loss" : "profit"} />
-            <KpiCard label="Profit / trip" value={formatINR(Math.round(t.profit / t.trips))} />
+            <KpiCard label="Profit" value={formatRupees(t.profit)} tone={t.profit < 0 ? "loss" : "profit"} />
+            <KpiCard label="Profit / trip" value={formatRupees(Math.round(t.profit / t.trips))} />
             <KpiCard label="Diesel vs standard" value={dieselPct !== null ? `${dieselPct}%` : "—"} />
           </div>
 
@@ -65,7 +65,7 @@ export default async function TrailerPage({ params, searchParams }: { params: Pr
             </SectionCard>
             <SectionCard title="Destinations">
               <BarList
-                items={s.destinations.map((d) => ({ key: d.name, label: displayName(d.name), value: d.trips, note: formatINR(d.profit) }))}
+                items={s.destinations.map((d) => ({ key: d.name, label: displayName(d.name), value: d.trips, note: formatRupees(d.profit) }))}
                 format={(n) => `${n}`}
               />
             </SectionCard>
@@ -76,12 +76,12 @@ export default async function TrailerPage({ params, searchParams }: { params: Pr
                     {d.id ? (
                       <Link href={`/drivers/${d.id}${q}`} className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 hover:bg-muted">
                         <span className="font-medium">{displayName(d.name)}</span>
-                        <span className="num text-sm text-muted-foreground">{d.trips} trips</span>
+                        <span className="num text-sm text-muted-foreground">{plural(d.trips, "trip")}</span>
                       </Link>
                     ) : (
                       <span className="flex min-h-11 items-center justify-between gap-3 px-2 text-warn">
                         <span>No driver</span>
-                        <span className="num text-sm">{d.trips} trips</span>
+                        <span className="num text-sm">{plural(d.trips, "trip")}</span>
                       </span>
                     )}
                   </li>

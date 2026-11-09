@@ -21,12 +21,12 @@ export function MonthCalendar({
   const max = Math.max(1, ...Object.values(counts));
   return (
     <div>
-      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground" aria-hidden>
+      <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[11px] font-medium text-muted-foreground" aria-hidden>
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
           <span key={i}>{d}</span>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {Array.from({ length: lead }, (_, i) => (
           <span key={`x${i}`} />
         ))}
@@ -35,7 +35,7 @@ export function MonthCalendar({
           const cell = (
             <span
               className={cn(
-                "num flex aspect-square min-h-9 flex-col items-center justify-center rounded-lg text-xs",
+                "num flex aspect-square min-h-11 min-w-11 flex-col items-center justify-center rounded-lg text-xs",
                 n === 0 ? "bg-muted/60 text-muted-foreground" : "font-semibold text-primary-foreground",
               )}
               style={n ? { background: `color-mix(in oklch, var(--primary) ${45 + (n / max) * 55}%, transparent)` } : undefined}
@@ -115,7 +115,7 @@ export function EmptyMonth({ month, latest, path }: { month: string; latest: str
 
 export function SectionCard({ title, action, children, className }: { title: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("card-surface p-5", className)}>
+    <section className={cn("card-surface p-4 sm:p-5", className)}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="font-semibold">{title}</h2>
         {action}

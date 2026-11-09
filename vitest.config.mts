@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   test: {
     include: ["tests/unit/**/*.test.ts"],
+    exclude: ["tests/e2e/**", "node_modules/**"],
     environment: "node",
     globalSetup: ["tests/setup-db.ts"],
     env: { DATABASE_URL: `file:${testDb}` },

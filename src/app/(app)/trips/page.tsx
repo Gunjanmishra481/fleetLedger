@@ -5,7 +5,7 @@ import { TileGrid } from "@/components/fl/tile-grid";
 import { FilterChips } from "@/components/trips/filter-chips";
 import { TripCard } from "@/components/trips/trip-card";
 import { TripsTable, type TripTableRow } from "@/components/trips/trips-table";
-import { formatINR, formatMonthKey, formatRelativeDay, istToday } from "@/lib/format";
+import { formatRupees, formatMonthKey, formatRelativeDay, istToday } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listTrips, masterOptions, parseTripFilters } from "@/server/queries/trips";
 import { monthFlags } from "@/server/services/summary";
@@ -35,14 +35,14 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   const today = istToday();
   const totalProfit = data.reduce((s, t) => s + t.profit, 0);
 
-  const seg = "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors";
+  const seg = "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors";
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trips</h1>
           <p className="num text-sm text-muted-foreground">
-            {formatMonthKey(f.m)} · {data.length} trips · <span className={totalProfit < 0 ? "text-loss" : "text-profit"}>{formatINR(totalProfit)}</span> profit
+            {formatMonthKey(f.m)} · {data.length} trips · <span className={totalProfit < 0 ? "text-loss" : "text-profit"}>{formatRupees(totalProfit)}</span> profit
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -87,7 +87,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
                 <header className="sticky top-16 z-10 -mx-1 flex items-baseline justify-between gap-3 bg-background/90 px-1 py-2.5 backdrop-blur">
                   <h2 className="font-semibold">{formatRelativeDay(new Date(day), today)}</h2>
                   <span className="num text-sm text-muted-foreground">
-                    {trips.length} trip{trips.length > 1 ? "s" : ""} · <span className={profit < 0 ? "text-loss" : "text-profit"}>{formatINR(profit)}</span>
+                    {trips.length} trip{trips.length > 1 ? "s" : ""} · <span className={profit < 0 ? "text-loss" : "text-profit"}>{formatRupees(profit)}</span>
                   </span>
                 </header>
                 <TileGrid min="18rem" gap="0.75rem">
