@@ -63,3 +63,16 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **LiveReceipt does no maths**: it only displays values the caller got from `compute()`.
 - **Names are shown in title case** via `displayName()` ("OCPL (Detroj)", "Pipavav Port"); the stored masters stay upper-case.
 - Every tap target is at least 44px (`.tap`, `min-h-11`, `size-12` car buttons).
+
+## Design step 3: new / edit trip flow
+
+- **One component, `TripFlow`, serves every screen.** Phone: 4 steps with a progress bar (other sections hidden with `max-sm:hidden`) and a Next/Back dock. Tablet: all steps as sections in one scroll, with the compact receipt and Save docked at the bottom. ≥1024px: two panes, with a sticky route preview, full receipt and Save on the right.
+- **On phone, picking a trailer or a recent route moves to the next step automatically**, to hit the ~15-second goal. Tablet and PC don't auto-scroll.
+- **The live receipt calls the same `compute()`** in the browser that the server action uses on save. The server recomputes; the client values are display only.
+- **Recent routes** = the 6 most-used routes in the 30 days before today, topped up with all-time most-used routes when there are fewer than 6. With only September data and today 09-Nov-26, all 6 currently come from the top-up.
+- **Choosing a route overwrites** freight, diesel, allowance and POD with the rate card, when one exists. With no rate card, the values are kept and an amber note says it's a new route.
+- **Driver**: the trailer's stored usual driver appears immediately; the server's 30-day usual driver (`autofill()`) then replaces it if different.
+- **Date chips** are Today / Yesterday / Pick date; future dates are blocked in the picker.
+- **Billing status** (segmented control) shows only when editing. New trips start Unbilled.
+- **Pre-fill links**: `/trips/new?vehicle=ID` (idle trailer on Home), `?copy=ID` (duplicate), `?route=ORIGIN:STOP-STOP` ("same route, another trailer").
+- **Edit** lives at `/trips/[id]/edit`; `/trips/[id]` redirects there until the detail page (step 5).

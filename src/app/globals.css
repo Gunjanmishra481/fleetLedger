@@ -220,3 +220,13 @@
     display: inline;
   }
 }
+
+/* Where docked bars (trip receipt) sit: above the bottom tab bar and its raised + button. */
+:root {
+  --dock-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) and (orientation: landscape), (min-width: 1024px) {
+  :root {
+    --dock-bottom: 0.75rem;
+  }
+}
