@@ -76,3 +76,11 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Billing status** (segmented control) shows only when editing. New trips start Unbilled.
 - **Pre-fill links**: `/trips/new?vehicle=ID` (idle trailer on Home), `?copy=ID` (duplicate), `?route=ORIGIN:STOP-STOP` ("same route, another trailer").
 - **Edit** lives at `/trips/[id]/edit`; `/trips/[id]` redirects there until the detail page (step 5).
+
+## Design step 4: trips feed
+
+- **Cards grouped by day, newest first**, with sticky day headers showing trip count and profit. The grid uses `repeat(auto-fill, minmax(18rem, 1fr))`, giving 1 column on phone, 2 on tablet and 3 on PC from the same CSS.
+- **Filter chips** (Trailer, Driver, Route, Dealer, Billing, Flagged, plus LR search) open a bottom sheet on phone and a right side panel on PC. Filters stay in the URL, so the Back button and shared links work.
+- **⋯ menu** on each card: Open, Edit, Duplicate. No swipe gestures (they were optional).
+- **Cards / Table toggle** via `?view=table`, reusing the TanStack table (now on the design tokens, 44px rows). The Excel export ignores "Flagged only" and exports every trip matching the other filters, in the SEP-26 layout.
+- **List + detail side by side at ≥1440px** comes with the trip detail page (step 5).

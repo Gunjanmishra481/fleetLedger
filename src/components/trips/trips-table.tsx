@@ -29,7 +29,7 @@ const COLS: { id: keyof TripTableRow; header: string; num?: boolean; sum?: Sum; 
   { id: "serialNo", header: "F", num: true },
   { id: "date", header: "Date", cell: (r) => formatDate(new Date(r.date)) },
   { id: "regNo", header: "Trailer No" },
-  { id: "driver", header: "Driver", cell: (r) => r.driver ?? <span className="text-amber-700">—</span> },
+  { id: "driver", header: "Driver", cell: (r) => r.driver ?? <span className="text-warn">—</span> },
   { id: "lrNo", header: "LR No" },
   { id: "origin", header: "From" },
   { id: "destination", header: "Destination" },
@@ -47,7 +47,7 @@ const COLS: { id: keyof TripTableRow; header: string; num?: boolean; sum?: Sum; 
     header: "Profit/Loss",
     num: true,
     sum: "sum",
-    cell: (r) => <span className={r.profit < 0 ? "text-red-600" : "text-emerald-700"}>{money(r.profit)}</span>,
+    cell: (r) => <span className={r.profit < 0 ? "text-loss" : "text-profit"}>{money(r.profit)}</span>,
   },
   {
     id: "billingStatus",
@@ -62,7 +62,7 @@ const COLS: { id: keyof TripTableRow; header: string; num?: boolean; sum?: Sum; 
       r.flags.length ? (
         <span className="inline-flex flex-wrap gap-1">
           {r.flags.map((f) => (
-            <span key={f.kind} title={f.label} className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
+            <span key={f.kind} title={f.label} className="rounded bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-warn">
               {f.kind.replace("_", " ").toLowerCase()}
             </span>
           ))}
@@ -124,7 +124,7 @@ export function TripsTable({ rows, month }: { rows: TripTableRow[]; month: strin
           </div>
         )}
       </div>
-      <div className="max-h-[calc(100vh-15rem)] overflow-auto rounded-md border">
+      <div className="card-surface max-h-[calc(100dvh-16rem)] overflow-auto">
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-muted">
             {table.getHeaderGroups().map((hg) => (
@@ -151,7 +151,7 @@ export function TripsTable({ rows, month }: { rows: TripTableRow[]; month: strin
               <tr
                 key={row.id}
                 onClick={() => router.push(`/trips/${row.original.id}?m=${month}`)}
-                className="h-9 cursor-pointer border-b hover:bg-muted/50"
+                className="h-11 cursor-pointer border-b hover:bg-muted/50"
               >
                 {row.getVisibleCells().map((cell) => {
                   const num = (cell.column.columnDef.meta as { num?: boolean })?.num;
@@ -189,7 +189,7 @@ export function TripsTable({ rows, month }: { rows: TripTableRow[]; month: strin
                     v = c.id === "carsCount" || c.id === "dieselL" ? formatNumber(n) : formatINR(n);
                   }
                   return (
-                    <td key={col.id} className={cn("px-2 whitespace-nowrap", c.num && "text-right tabular-nums", c.id === "profit" && totals.profit < 0 && "text-red-600")}>
+                    <td key={col.id} className={cn("px-2 whitespace-nowrap", c.num && "text-right tabular-nums", c.id === "profit" && totals.profit < 0 && "text-loss")}>
                       {v}
                     </td>
                   );

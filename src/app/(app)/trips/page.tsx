@@ -1,46 +1,100 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Download, Plus } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { TripFilters } from "@/components/trips/trip-filters";
-import { TripsTable } from "@/components/trips/trips-table";
-import { formatMonthKey } from "@/lib/format";
+import { Download, LayoutGrid, Plus, Table2 } from "lucide-react";
+import { TileGrid } from "@/components/fl/tile-grid";
+import { FilterChips } from "@/components/trips/filter-chips";
+import { TripCard } from "@/components/trips/trip-card";
+import { TripsTable, type TripTableRow } from "@/components/trips/trips-table";
+import { formatINR, formatMonthKey, formatRelativeDay, istToday } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { listTrips, masterOptions, parseTripFilters } from "@/server/queries/trips";
 import { monthFlags } from "@/server/services/summary";
 
-export default async function TripsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+type SP = Record<string, string | string[] | undefined>;
+
+export default async function TripsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const f = parseTripFilters(sp);
+  const view = sp.view === "table" ? "table" : "cards";
   const [rows, options, flagMap] = await Promise.all([listTrips(f), masterOptions(), monthFlags(f.m)]);
-  const flaggedOnly = sp.flagged === "1";
-  const data = rows
+  const data: TripTableRow[] = rows
     .map((r) => ({ ...r, flags: flagMap.get(r.id) ?? [] }))
-    .filter((r) => !flaggedOnly || r.flags.length > 0);
-  const qs = new URLSearchParams(
-    Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" && v ? [[k, v]] : [])),
-  ).toString();
+    .filter((r) => sp.flagged !== "1" || r.flags.length > 0);
 
+  const keep = Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" && v && k !== "view" ? [[k, v]] : []));
+  const qs = (extra: Record<string, string>) => new URLSearchParams([...keep, ...Object.entries(extra)]).toString();
+  const exportQs = new URLSearchParams([...keep.filter(([k]) => k !== "flagged"), ["m", f.m]]).toString();
+
+  // Newest day first; trips within a day by serial.
+  const days = new Map<string, TripTableRow[]>();
+  for (const t of [...data].reverse()) days.set(t.date, [...(days.get(t.date) ?? []), t]);
+  const today = istToday();
+  const totalProfit = data.reduce((s, t) => s + t.profit, 0);
+
+  const seg = "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors";
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Trips · {formatMonthKey(f.m)}</h1>
-        <div className="flex gap-2">
-          <a href={`/trips/export?${qs || `m=${f.m}`}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            <Download className="size-4" /> Export Excel
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Trips</h1>
+          <p className="num text-sm text-muted-foreground">
+            {formatMonthKey(f.m)} · {data.length} trips · <span className={totalProfit < 0 ? "text-loss" : "text-profit"}>{formatINR(totalProfit)}</span> profit
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex rounded-xl bg-muted p-1" role="group" aria-label="View">
+            <Link href={`/trips?${qs({})}`} aria-current={view === "cards" ? "page" : undefined} className={cn(seg, view === "cards" ? "bg-card shadow-sm" : "text-muted-foreground")}>
+              <LayoutGrid className="size-4" /> Cards
+            </Link>
+            <Link href={`/trips?${qs({ view: "table" })}`} aria-current={view === "table" ? "page" : undefined} className={cn(seg, view === "table" ? "bg-card shadow-sm" : "text-muted-foreground")}>
+              <Table2 className="size-4" /> Table
+            </Link>
+          </div>
+          <a href={`/trips/export?${exportQs}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border bg-card px-4 text-sm font-medium hover:bg-muted">
+            <Download className="size-4" /> Excel
           </a>
-          <Link href={`/trips/new?m=${f.m}`} className={buttonVariants({ size: "sm" })} title="Shortcut: N">
+          <Link href={`/trips/new?m=${f.m}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90" title="Shortcut: N">
             <Plus className="size-4" /> New trip
           </Link>
         </div>
       </div>
+
       <Suspense>
-        <TripFilters options={options} />
+        <FilterChips options={options} />
       </Suspense>
-      <TripsTable rows={data} month={f.m} />
+
+      {view === "table" ? (
+        <TripsTable rows={data} month={f.m} />
+      ) : data.length === 0 ? (
+        <div className="card-surface p-8 text-center text-muted-foreground">
+          No trips match. Change the month or filters, or{" "}
+          <Link href={`/trips/new?m=${f.m}`} className="font-medium text-primary underline">
+            add a trip
+          </Link>
+          .
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {[...days].map(([day, trips]) => {
+            const profit = trips.reduce((s, t) => s + t.profit, 0);
+            return (
+              <section key={day} aria-label={formatRelativeDay(new Date(day), today)}>
+                <header className="sticky top-16 z-10 -mx-1 flex items-baseline justify-between gap-3 bg-background/90 px-1 py-2.5 backdrop-blur">
+                  <h2 className="font-semibold">{formatRelativeDay(new Date(day), today)}</h2>
+                  <span className="num text-sm text-muted-foreground">
+                    {trips.length} trip{trips.length > 1 ? "s" : ""} · <span className={profit < 0 ? "text-loss" : "text-profit"}>{formatINR(profit)}</span>
+                  </span>
+                </header>
+                <TileGrid min="18rem" gap="0.75rem">
+                  {trips.map((t) => (
+                    <TripCard key={t.id} t={t} month={f.m} href={`/trips/${t.id}?m=${f.m}`} />
+                  ))}
+                </TileGrid>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
