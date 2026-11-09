@@ -55,3 +55,11 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Theme**: deep teal primary, warm off-white background, 16px radius, plus `profit` / `warn` / `loss` / `plate` colour tokens in globals.css.
 - **Sign out** moved to More on every screen size, so the top bar holds only the month chip.
 - **ResponsiveSheet** is a small custom component (focus trap, Escape, scroll lock) rather than a new dialog library: a bottom sheet below 1024px; at 1024px+ a dialog, side panel or popover.
+
+## Design step 2: shared components (src/components/fl)
+
+- NumberPlate, TileGrid/Tile, ChipPicker, Stepper, CarCountPicker/CarIcons, RouteLine, LiveReceipt, ResponsiveSheet, KpiCard/Sparkline.
+- **Sparklines are inline SVG**, not Recharts: a 30px line doesn't need a chart library. Recharts is kept for real charts.
+- **LiveReceipt does no maths**: it only displays values the caller got from `compute()`.
+- **Names are shown in title case** via `displayName()` ("OCPL (Detroj)", "Pipavav Port"); the stored masters stay upper-case.
+- Every tap target is at least 44px (`.tap`, `min-h-11`, `size-12` car buttons).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatINR, formatLakh, formatMonthKey } from "@/lib/format";
+import { displayName, formatDate, formatINR, formatLakh, formatMonthKey, formatRelativeDay } from "@/lib/format";
 import { rupeesToPaise } from "@/lib/money";
 
 describe("formatINR", () => {
@@ -31,5 +31,19 @@ describe("formatDate", () => {
   });
   it("renders month keys", () => {
     expect(formatMonthKey("2026-09")).toBe("Sep 2026");
+  });
+});
+
+describe("formatRelativeDay", () => {
+  const today = new Date(Date.UTC(2026, 8, 18));
+  it("says Today / Yesterday, then dd MMM", () => {
+    expect(formatRelativeDay(new Date(Date.UTC(2026, 8, 18)), today)).toBe("Today");
+    expect(formatRelativeDay(new Date(Date.UTC(2026, 8, 17)), today)).toBe("Yesterday");
+    expect(formatRelativeDay(new Date(Date.UTC(2026, 8, 1)), today)).toBe("01 Sep");
+    expect(formatRelativeDay(new Date(Date.UTC(2025, 11, 31)), today)).toBe("31 Dec 25");
+  });
+  it("tidies master names for display", () => {
+    expect(displayName("OCPL (DETROJ)")).toBe("OCPL (Detroj)");
+    expect(displayName("PIPAVAV PORT")).toBe("Pipavav Port");
   });
 });
