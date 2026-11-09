@@ -84,3 +84,11 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **⋯ menu** on each card: Open, Edit, Duplicate. No swipe gestures (they were optional).
 - **Cards / Table toggle** via `?view=table`, reusing the TanStack table (now on the design tokens, 44px rows). The Excel export ignores "Flagged only" and exports every trip matching the other filters, in the SEP-26 layout.
 - **List + detail side by side at ≥1440px** comes with the trip detail page (step 5).
+
+## Design step 5: trip detail
+
+- `/trips/[id]` shows a ticket-style card (plate, LR, perforation, big route line, driver with a call button when a phone is on file, cars, dealer), any flags, the cost receipt, billing as a segmented control, Edit / Duplicate / Delete, and the audit history.
+- **Billing changes save on tap** (`setBillingStatus` server action) and write an AuditLog row like any other edit.
+- **Delete** asks for confirmation in a sheet. The AuditLog DELETE row keeps a full copy of the trip.
+- **≥1440px: list + detail side by side.** A card tap there sets `?sel=ID` and the detail renders in a sticky right pane. Below 1440px the same tap opens `/trips/[id]`. The breakpoint is the brief's 1440px (Tailwind's `2xl` is 1536px, so it uses `min-[1440px]:`).
+- **History shows readable values**: ids are shown as names (trailer, driver, places) and money is formatted with ₹. Imported trips with no edits say "Imported from the loading sheet".

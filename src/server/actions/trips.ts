@@ -133,6 +133,30 @@ export async function deleteTrip(id: number): Promise<Result<null>> {
   return { ok: true, data: null };
 }
 
+const billingSchema = z.object({ id: z.number().int().positive(), status: z.enum(["UNBILLED", "INVOICED", "PAID"]) });
+
+export async function setBillingStatus(id: number, status: string): Promise<Result<null>> {
+  const user = await requireUser();
+  const p = billingSchema.safeParse({ id, status });
+  if (!p.success) return { ok: false, error: "Unknown billing status" };
+  await db.$transaction(async (tx) => {
+    const before = await tx.trip.findUniqueOrThrow({ where: { id: p.data.id }, select: { billingStatus: true } });
+    if (before.billingStatus === p.data.status) return;
+    await tx.trip.update({ where: { id: p.data.id }, data: { billingStatus: p.data.status } });
+    await tx.auditLog.create({
+      data: {
+        user,
+        entity: "Trip",
+        entityId: String(p.data.id),
+        action: "UPDATE",
+        changes: JSON.stringify({ billingStatus: [before.billingStatus, p.data.status] }),
+      },
+    });
+  });
+  revalidatePath("/", "layout");
+  return { ok: true, data: null };
+}
+
 export async function suggestLrNo(): Promise<string> {
   await requireUser();
   return nextLrNo(db);

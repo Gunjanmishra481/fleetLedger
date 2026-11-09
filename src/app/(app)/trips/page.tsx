@@ -9,6 +9,8 @@ import { formatINR, formatMonthKey, formatRelativeDay, istToday } from "@/lib/fo
 import { cn } from "@/lib/utils";
 import { listTrips, masterOptions, parseTripFilters } from "@/server/queries/trips";
 import { monthFlags } from "@/server/services/summary";
+import { tripDetail } from "@/server/queries/trip-detail";
+import { TripDetail } from "@/components/trips/trip-detail";
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -16,12 +18,14 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const f = parseTripFilters(sp);
   const view = sp.view === "table" ? "table" : "cards";
+  const selId = Number(sp.sel) || null;
+  const selected = selId && view === "cards" ? await tripDetail(selId) : null;
   const [rows, options, flagMap] = await Promise.all([listTrips(f), masterOptions(), monthFlags(f.m)]);
   const data: TripTableRow[] = rows
     .map((r) => ({ ...r, flags: flagMap.get(r.id) ?? [] }))
     .filter((r) => sp.flagged !== "1" || r.flags.length > 0);
 
-  const keep = Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" && v && k !== "view" ? [[k, v]] : []));
+  const keep = Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" && v && k !== "view" && k !== "sel" ? [[k, v]] : []));
   const qs = (extra: Record<string, string>) => new URLSearchParams([...keep, ...Object.entries(extra)]).toString();
   const exportQs = new URLSearchParams([...keep.filter(([k]) => k !== "flagged"), ["m", f.m]]).toString();
 
@@ -74,6 +78,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
           .
         </div>
       ) : (
+        <div className={cn(selected && "min-[1440px]:grid min-[1440px]:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)] min-[1440px]:items-start min-[1440px]:gap-6")}>
         <div className="space-y-2">
           {[...days].map(([day, trips]) => {
             const profit = trips.reduce((s, t) => s + t.profit, 0);
@@ -87,12 +92,25 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
                 </header>
                 <TileGrid min="18rem" gap="0.75rem">
                   {trips.map((t) => (
-                    <TripCard key={t.id} t={t} month={f.m} href={`/trips/${t.id}?m=${f.m}`} />
+                    <TripCard
+                      key={t.id}
+                      t={t}
+                      month={f.m}
+                      selected={t.id === selId}
+                      href={`/trips/${t.id}?m=${f.m}`}
+                      wideHref={`/trips?${qs({ sel: String(t.id) })}`}
+                    />
                   ))}
                 </TileGrid>
               </section>
             );
           })}
+        </div>
+          {selected && (
+            <aside className="hidden min-[1440px]:sticky min-[1440px]:top-20 min-[1440px]:block min-[1440px]:max-h-[calc(100dvh-6rem)] min-[1440px]:overflow-y-auto min-[1440px]:pb-4" aria-label="Selected trip">
+              <TripDetail t={selected} month={f.m} closeHref={`/trips?${qs({})}`} />
+            </aside>
+          )}
         </div>
       )}
     </div>

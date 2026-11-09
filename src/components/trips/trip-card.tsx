@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Copy, Ellipsis, Eye, Pencil } from "lucide-react";
 import { CarIcons } from "@/components/fl/car-count";
 import { NumberPlate } from "@/components/fl/number-plate";
@@ -11,7 +12,20 @@ import { cn } from "@/lib/utils";
 import type { TripTableRow } from "./trips-table";
 
 /** One trip as a card: plate, driver, route line, cars, freight, profit pill, amber dot when flagged. */
-export function TripCard({ t, month, selected, href }: { t: TripTableRow; month: string; selected?: boolean; href: string }) {
+export function TripCard({
+  t,
+  month,
+  selected,
+  href,
+  wideHref,
+}: {
+  t: TripTableRow;
+  month: string;
+  selected?: boolean;
+  href: string;
+  wideHref?: string; // on screens >=1440px, open the trip in the side pane instead
+}) {
+  const router = useRouter();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -30,7 +44,18 @@ export function TripCard({ t, month, selected, href }: { t: TripTableRow; month:
 
   return (
     <article className={cn("card-surface @container relative transition-shadow duration-150 hover:ring-2 hover:ring-primary/25", selected && "ring-2 ring-primary")}>
-      <Link href={href} className="block space-y-3 rounded-[inherit] p-4 pr-14" aria-label={`Trip LR ${t.lrNo}, ${t.regNo}`}>
+      <Link
+        href={href}
+        onClick={(e) => {
+          if (wideHref && window.matchMedia("(min-width: 1440px)").matches) {
+            e.preventDefault();
+            router.push(wideHref, { scroll: false });
+          }
+        }}
+        aria-current={selected ? "true" : undefined}
+        className="block space-y-3 rounded-[inherit] p-4 pr-14"
+        aria-label={`Trip LR ${t.lrNo}, ${t.regNo}`}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <NumberPlate regNo={t.regNo} size="sm" />
           <span className={cn("min-w-0 truncate text-sm font-medium", !t.driver && "text-warn")}>{t.driver ? displayName(t.driver) : "No driver"}</span>
