@@ -1,5 +1,6 @@
 # FleetLedger — rules for Claude Code
 Product: trip register + summaries for a car-carrier fleet in Gujarat. Spec: docs/SPEC.md.
+UI must follow docs/DESIGN.md
 Stack: Next.js 15 App Router, TypeScript strict, Tailwind + shadcn/ui, Prisma (SQLite for MVP,
 Postgres later), zod, TanStack Table, Recharts, exceljs, Vitest.
 Rules
