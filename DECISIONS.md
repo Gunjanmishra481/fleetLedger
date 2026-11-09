@@ -92,3 +92,14 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Delete** asks for confirmation in a sheet. The AuditLog DELETE row keeps a full copy of the trip.
 - **≥1440px: list + detail side by side.** A card tap there sets `?sel=ID` and the detail renders in a sticky right pane. Below 1440px the same tap opens `/trips/[id]`. The breakpoint is the brief's 1440px (Tailwind's `2xl` is 1536px, so it uses `min-[1440px]:`).
 - **History shows readable values**: ids are shown as names (trailer, driver, places) and money is formatted with ₹. Imported trips with no edits say "Imported from the loading sheet".
+
+## Design step 6: Home, Fleet, Trailer, Driver, Routes
+
+- **Home** has a greeting with today's date; "Fleet today" plates (on trip first, idle with a dashed border, where tapping opens a new trip for that trailer); 6 KPI cards (trips, cars, revenue, profit, margin, diesel) with a daily sparkline and the change vs last month; "Needs attention" with one-tap fixes (e.g. no driver → `/trips?driver=none`); best / lowest trailers; idle trailers.
+- **Empty months point to data**: the month defaults to the current month (Nov 2026), which has no trips, so empty screens offer "Show Sep 2026" (the latest month with trips) rather than a blank page.
+- **"Fleet today"** always uses today's real date, not the chosen month. Today it shows every trailer as idle, which is correct until trips for today are entered.
+- **No Recharts yet**: every visual here (sparklines, calendars, bar lists, utilisation bars) is small and CSS/SVG-only, so I didn't add the chart library's bundle weight. It can come back for a real trend chart.
+- **Fleet** = `/fleet?tab=trailers|drivers|routes`. Trailer cards are sorted by profit and show the utilisation bar; drivers are sorted by trips, with a warning link for trips that have no driver.
+- **Trailer page**: plate hero, KPIs (trips, active days %, revenue, profit, ₹/trip, diesel vs route standard), a calendar of trip days (each day links to that day's trips), destinations as a ranked bar list (this replaces the Sheet1 pivot), drivers, and the trip feed.
+- **Driver page**: initials avatar and a Call button (shows "No phone saved" until a phone is entered; none were in the sheet). **Balance due = allowance earned**, because advances and payments aren't recorded until the driver ledger (phase 4). The page says so.
+- **Routes** are cards sorted by profit: trips, cars, rate-card freight, average diesel / route standard (amber when >10% over), and margin. Tapping a route opens its trips.

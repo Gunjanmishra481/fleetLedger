@@ -82,7 +82,12 @@ export async function dashboard(monthKey: string) {
   const [kpis, prev, byDay, byTrailer, vehicles, flagMap] = await Promise.all([
     monthKpis(monthKey),
     monthKpis(prevKey),
-    db.trip.groupBy({ by: ["tripDate"], where: { monthKey }, _count: { _all: true }, _sum: { carsCount: true } }),
+    db.trip.groupBy({
+      by: ["tripDate"],
+      where: { monthKey },
+      _count: { _all: true },
+      _sum: { carsCount: true, freight: true, profit: true, dieselL: true },
+    }),
     db.trip.groupBy({
       by: ["vehicleId"],
       where: { monthKey },
@@ -96,10 +101,17 @@ export async function dashboard(monthKey: string) {
     monthFlags(monthKey),
   ]);
 
-  const days: { day: string; trips: number; cars: number }[] = [];
+  const days: { day: string; trips: number; cars: number; freight: number; profit: number; dieselL: number }[] = [];
   for (let d = new Date(start); d < end; d = new Date(d.getTime() + 86_400_000)) {
     const hit = byDay.find((b) => b.tripDate.getTime() === d.getTime());
-    days.push({ day: d.toISOString().slice(0, 10), trips: hit?._count._all ?? 0, cars: hit?._sum.carsCount ?? 0 });
+    days.push({
+      day: d.toISOString().slice(0, 10),
+      trips: hit?._count._all ?? 0,
+      cars: hit?._sum.carsCount ?? 0,
+      freight: hit?._sum.freight ?? 0,
+      profit: hit?._sum.profit ?? 0,
+      dieselL: hit?._sum.dieselL ?? 0,
+    });
   }
 
   const reg = new Map(vehicles.map((v) => [v.id, v.regNo]));
@@ -134,6 +146,32 @@ export async function dashboard(monthKey: string) {
     flags: [...flagCounts].map(([kind, v]) => ({ kind, ...v })).sort((a, b) => b.count - a.count),
     flaggedTrips: flagMap.size,
   };
+}
+
+/** Most recent month that has trips (for empty-state links), or null. */
+export async function latestMonthWithTrips(): Promise<string | null> {
+  const t = await db.trip.findFirst({ orderBy: { tripDate: "desc" }, select: { monthKey: true } });
+  return t?.monthKey ?? null;
+}
+
+/** Trailers on a trip on the given day vs idle, for the Home plate strip. */
+export async function fleetToday(day: Date) {
+  const [vehicles, today] = await Promise.all([
+    db.vehicle.findMany({ where: { active: true }, orderBy: { regNo: "asc" }, select: { id: true, regNo: true, usualDriver: { select: { name: true } } } }),
+    db.trip.groupBy({ by: ["vehicleId"], where: { tripDate: day }, _count: { _all: true } }),
+  ]);
+  return vehicles.map((v) => ({
+    id: v.id,
+    regNo: v.regNo,
+    usualDriver: v.usualDriver?.name ?? null,
+    tripsToday: today.find((x) => x.vehicleId === v.id)?._count._all ?? 0,
+  }));
+}
+
+/** Trips per calendar day for a trailer or driver in a month: { "2026-09-01": 2, ... } */
+export async function dayCounts(monthKey: string, where: { vehicleId?: number; driverId?: number }) {
+  const rows = await db.trip.groupBy({ by: ["tripDate"], where: { monthKey, ...where }, _count: { _all: true } });
+  return Object.fromEntries(rows.map((r) => [r.tripDate.toISOString().slice(0, 10), r._count._all]));
 }
 
 // ---------- drivers ----------
