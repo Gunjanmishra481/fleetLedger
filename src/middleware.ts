@@ -14,5 +14,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Everything except the login page, Next internals and static files.
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|ico)$).*)"],
+  matcher: ["/((?!login|manifest.webmanifest|icon.svg|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|ico)$).*)"],
 };
