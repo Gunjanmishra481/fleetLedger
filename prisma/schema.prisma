@@ -1,0 +1,9 @@
+// Full data model arrives in milestone 2 (SPEC section 4).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
