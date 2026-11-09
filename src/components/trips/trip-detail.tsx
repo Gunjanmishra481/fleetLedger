@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Phone, X } from "lucide-react";
 import { CarIcons } from "@/components/fl/car-count";
 import { LiveReceipt } from "@/components/fl/live-receipt";
-import { NumberPlate } from "@/components/fl/number-plate";
+import { MissingPlate, NumberPlate } from "@/components/fl/number-plate";
 import { RouteLine } from "@/components/fl/route-line";
 import { displayName, formatDate, formatINR, formatRelativeDay, istToday } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -23,9 +23,13 @@ export function TripDetail({ t, month, closeHref }: { t: TripDetailData; month: 
             <p className="text-sm text-muted-foreground">
               {formatRelativeDay(d, istToday())} · {formatDate(d)} · #{t.serialNo}
             </p>
-            <Link href={`/trailers/${t.vehicle.id}?m=${t.monthKey}`} className="inline-block">
-              <NumberPlate regNo={t.vehicle.regNo} size="lg" />
-            </Link>
+            {t.vehicle ? (
+              <Link href={`/trailers/${t.vehicle.id}?m=${t.monthKey}`} className="inline-block">
+                <NumberPlate regNo={t.vehicle.regNo} size="lg" />
+              </Link>
+            ) : (
+              <MissingPlate size="lg" />
+            )}
           </div>
           <div className="flex items-start gap-1 text-right">
             <div>
@@ -83,15 +87,35 @@ export function TripDetail({ t, month, closeHref }: { t: TripDetailData; month: 
         {t.notes && <p className="border-t px-5 py-3 text-sm text-muted-foreground">{t.notes}</p>}
       </article>
 
-      {t.flags.length > 0 && (
+      {t.flags.some((f) => f.kind === "INCOMPLETE") && (
+        <div className="space-y-3 rounded-2xl border-2 border-dashed border-warn bg-warn-soft p-4 text-sm text-warn">
+          <p className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="size-4" /> {t.flags.find((f) => f.kind === "INCOMPLETE")!.label}
+          </p>
+          {t.importNotes.length > 0 && (
+            <ul className="list-inside list-disc space-y-0.5">
+              {t.importNotes.map((n) => (
+                <li key={n.field}>From the sheet: {n.note}</li>
+              ))}
+            </ul>
+          )}
+          <Link href={`/trips/${t.id}/edit?m=${month}`} className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary/90">
+            Fill in missing details
+          </Link>
+        </div>
+      )}
+
+      {t.flags.some((f) => f.kind !== "INCOMPLETE") && (
         <div className="rounded-2xl bg-warn-soft p-4 text-sm text-warn">
           <p className="mb-1 flex items-center gap-2 font-semibold">
             <AlertTriangle className="size-4" /> Check this trip
           </p>
           <ul className="list-inside list-disc space-y-0.5">
-            {t.flags.map((f) => (
-              <li key={f.kind}>{f.label}</li>
-            ))}
+            {t.flags
+              .filter((f) => f.kind !== "INCOMPLETE")
+              .map((f) => (
+                <li key={f.kind}>{f.label}</li>
+              ))}
           </ul>
         </div>
       )}

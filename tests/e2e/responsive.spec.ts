@@ -140,3 +140,48 @@ test.describe("masters", () => {
     await expect(page.getByText("₹99.10/L")).toBeVisible();
   });
 });
+
+test.describe("import with blank cells", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test("imports blank rows, flags them on Home, and the flag clears once filled in", async ({ page }) => {
+    // October sheet: one complete trip, one with blank trailer and destination, one empty template row.
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("OCT-26");
+    ws.addRow(["F", "DATE", "TRAILER NO", "DRIVER", "LR NO", "FROM", "DESTINATION", "NO CAR", "DIESEL", "Rate/ltr", "Diesel Amount", "POD", "Maint", "TRIP", "Total Cost", "Trip Revenue", "Profit/Loss", "REMARK", "DEALER"]);
+    const day = new Date(Date.UTC(2026, 9, 5));
+    ws.addRow([1, day, "NL01AL1658", "RAJESH", 7001, "OCPL(DETROJ)", "AHMEDABAD", 6, 65, 98.36, null, 300, null, 1000, null, 15871]);
+    ws.addRow([2, day, null, "DALBIR", 7002, "OCPL(DETROJ)", null, 7, 65, 98.36, null, 300, null, 1000, null, 15871]);
+    ws.addRow([3, null, null, null, null, null, null, null, null, 98.36, null, 300]);
+    const file = "test-results/oct-with-blanks.xlsx";
+    await wb.xlsx.writeFile(file);
+
+    await login(page);
+    await page.goto("/import");
+    await page.locator('input[type="file"]').setInputFiles(file);
+    await page.getByRole("button", { name: "Preview" }).click();
+    await expect(page.getByText(/Will import with missing details/)).toBeVisible();
+    await expect(page.getByText(/1 empty row skipped/)).toBeVisible();
+    await page.getByRole("button", { name: "Import 2 trips" }).click();
+    await expect(page.getByText("Imported 2 trips")).toBeVisible();
+
+    await page.goto("/dashboard?m=2026-10");
+    await expect(page.getByText("trip is missing details from the import")).toBeVisible();
+    await page.screenshot({ path: "test-results/screens/pc-home-missing-details.png" });
+    await page.getByRole("link", { name: "Fill in" }).click();
+    await expect(page.getByText("Missing details")).toBeVisible(); // active filter chip
+    await page.getByRole("link", { name: /Trip LR 7002/ }).click();
+    await expect(page.getByText("Missing: trailer, destination")).toBeVisible();
+    await page.screenshot({ path: "test-results/screens/pc-trip-missing-details.png" });
+
+    await page.getByRole("link", { name: "Fill in missing details" }).click();
+    await page.getByRole("button", { name: /^Trailer NL01N3650/ }).click();
+    await page.getByRole("group", { name: "Destinations" }).getByRole("button", { name: "Ahmedabad", exact: true }).click();
+    await page.getByRole("button", { name: "Save changes" }).first().click();
+    await page.waitForURL(/\/trips\/\d+\?/);
+    await expect(page.getByText(/^Missing:/)).toHaveCount(0);
+    await page.goto("/dashboard?m=2026-10");
+    await expect(page.getByText("missing details from the import")).toHaveCount(0);
+  });
+});

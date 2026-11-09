@@ -5,7 +5,7 @@ import { TileGrid } from "@/components/fl/tile-grid";
 import { FilterChips } from "@/components/trips/filter-chips";
 import { TripCard } from "@/components/trips/trip-card";
 import { TripsTable, type TripTableRow } from "@/components/trips/trips-table";
-import { formatRupees, formatMonthKey, formatRelativeDay, istToday } from "@/lib/format";
+import { plural, formatRupees, formatMonthKey, formatRelativeDay, istToday } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { listTrips, masterOptions, parseTripFilters } from "@/server/queries/trips";
 import { monthFlags } from "@/server/services/summary";
@@ -23,7 +23,8 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   const [rows, options, flagMap] = await Promise.all([listTrips(f), masterOptions(), monthFlags(f.m)]);
   const data: TripTableRow[] = rows
     .map((r) => ({ ...r, flags: flagMap.get(r.id) ?? [] }))
-    .filter((r) => sp.flagged !== "1" || r.flags.length > 0);
+    .filter((r) => sp.flagged !== "1" || r.flags.length > 0)
+    .filter((r) => typeof sp.flag !== "string" || r.flags.some((fl) => fl.kind === sp.flag));
 
   const keep = Object.entries(sp).flatMap(([k, v]) => (typeof v === "string" && v && k !== "view" && k !== "sel" ? [[k, v]] : []));
   const qs = (extra: Record<string, string>) => new URLSearchParams([...keep, ...Object.entries(extra)]).toString();
@@ -42,7 +43,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Trips</h1>
           <p className="num text-sm text-muted-foreground">
-            {formatMonthKey(f.m)} · {data.length} trips · <span className={totalProfit < 0 ? "text-loss" : "text-profit"}>{formatRupees(totalProfit)}</span> profit
+            {formatMonthKey(f.m)} · {plural(data.length, "trip")} · <span className={totalProfit < 0 ? "text-loss" : "text-profit"}>{formatRupees(totalProfit)}</span> profit
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

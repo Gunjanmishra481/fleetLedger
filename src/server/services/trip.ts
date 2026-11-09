@@ -115,10 +115,11 @@ export async function autofill(
   return out;
 }
 
-export type FlagKind = "DIESEL_HIGH" | "ZERO_COST" | "NO_DRIVER" | "FREIGHT_MISMATCH" | "BUSY_TRAILER" | "DUP_LR";
+export type FlagKind = "INCOMPLETE" | "DIESEL_HIGH" | "ZERO_COST" | "NO_DRIVER" | "FREIGHT_MISMATCH" | "BUSY_TRAILER" | "DUP_LR";
 export type Flag = { kind: FlagKind; label: string };
 
 export const FLAG_LABELS: Record<FlagKind, string> = {
+  INCOMPLETE: "Missing details",
   DIESEL_HIGH: "Diesel >10% over route standard",
   ZERO_COST: "Revenue with zero cost",
   NO_DRIVER: "No driver",
@@ -127,22 +128,79 @@ export const FLAG_LABELS: Record<FlagKind, string> = {
   DUP_LR: "Duplicate LR in source sheet",
 };
 
+export type IncompleteNote = { field: string; note: string };
+
+export const NO_LR_PREFIX = "NOLR-";
+
+/** What a trip is still missing: blanks recorded at import plus anything still empty now. */
+export function missingDetails(t: {
+  vehicleId: number | null;
+  originId: number | null;
+  stopCount: number;
+  carsCount: number;
+  freight: Paise;
+  lrNo: string;
+  incomplete: string | null;
+}): string[] {
+  const out = new Set<string>();
+  if (t.vehicleId === null) out.add("trailer");
+  if (t.originId === null) out.add("loading point");
+  if (t.stopCount === 0) out.add("destination");
+  if (t.lrNo.startsWith(NO_LR_PREFIX)) out.add("LR no.");
+  if (t.carsCount === 0) out.add("cars");
+  if (t.freight === 0) out.add("freight");
+  for (const n of parseIncomplete(t.incomplete)) out.add(n.field);
+  return [...out];
+}
+
+export function parseIncomplete(json: string | null): IncompleteNote[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json) as unknown;
+    return Array.isArray(v) ? (v as IncompleteNote[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Anomaly flags for one trip (SPEC smart features). Warnings only; never blocks a save.
  * sameDayTrips = number of trips the same trailer has on the same date, including this one.
  */
 export function flags(
-  t: { dieselL: number; freight: Paise; totalCost: Paise; driverId: number | null; lrNo: string },
+  t: {
+    dieselL: number;
+    freight: Paise;
+    totalCost: Paise;
+    driverId: number | null;
+    lrNo: string;
+    vehicleId?: number | null;
+    originId?: number | null;
+    stopCount?: number;
+    carsCount?: number;
+    incomplete?: string | null;
+  },
   ctx: { rate?: { freight: Paise; stdDieselL: number } | null; sameDayTrips: number },
 ): Flag[] {
   const out: FlagKind[] = [];
+  const missing = missingDetails({
+    vehicleId: t.vehicleId === undefined ? 0 : t.vehicleId,
+    originId: t.originId === undefined ? 0 : t.originId,
+    stopCount: t.stopCount ?? 1,
+    carsCount: t.carsCount ?? 1,
+    freight: t.freight,
+    lrNo: t.lrNo,
+    incomplete: t.incomplete ?? null,
+  });
   if (ctx.rate && ctx.rate.stdDieselL > 0 && t.dieselL > ctx.rate.stdDieselL * 1.1) out.push("DIESEL_HIGH");
-  if (t.totalCost === 0) out.push("ZERO_COST");
+  if (t.totalCost === 0 && t.freight > 0) out.push("ZERO_COST");
   if (t.driverId === null) out.push("NO_DRIVER");
   if (ctx.rate && t.freight !== ctx.rate.freight) out.push("FREIGHT_MISMATCH");
   if (ctx.sameDayTrips >= 3) out.push("BUSY_TRAILER");
   if (/-DUP$/.test(t.lrNo)) out.push("DUP_LR");
-  return out.map((kind) => ({ kind, label: FLAG_LABELS[kind] }));
+  const result = out.map((kind) => ({ kind, label: FLAG_LABELS[kind] }));
+  if (missing.length) result.unshift({ kind: "INCOMPLETE", label: `Missing: ${missing.join(", ")}` });
+  return result;
 }
 
 /** Next LR: highest numeric LR + 1 ("1454", "1435-A" -> "1455"). */

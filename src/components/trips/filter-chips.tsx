@@ -52,7 +52,11 @@ export function FilterChips({ options }: { options: MasterOptions }) {
     { key: "status", label: "Billing", value: STATUS.find((s) => s.value === v("status"))?.label ?? null, clear: { status: null } },
   ];
   const chip = "inline-flex min-h-11 items-center gap-1.5 rounded-full border bg-card px-4 text-sm font-medium transition-colors hover:bg-muted";
-  const anyActive = chips.some((c) => c.value) || v("flagged") || v("q");
+  const anyActive = chips.some((c) => c.value) || v("flagged") || v("q") || v("flag");
+  const FLAG_NAMES: Record<string, string> = {
+    INCOMPLETE: "Missing details", NO_DRIVER: "No driver", ZERO_COST: "Zero cost", DIESEL_HIGH: "High diesel",
+    FREIGHT_MISMATCH: "Freight ≠ rate card", BUSY_TRAILER: "3+ trips a day", DUP_LR: "Duplicate LR",
+  };
 
   return (
     <div className="space-y-3">
@@ -85,6 +89,14 @@ export function FilterChips({ options }: { options: MasterOptions }) {
               {c.label} <ChevronDown className="size-4 text-muted-foreground" />
             </button>
           ),
+        )}
+        {v("flag") && (
+          <span className={cn(chip, "border-warn bg-warn-soft pr-1 text-warn")}>
+            {FLAG_NAMES[v("flag")] ?? v("flag")}
+            <button type="button" onClick={() => set({ flag: null })} aria-label="Clear this filter" className="tap flex items-center justify-center rounded-full hover:bg-background/60">
+              <X className="size-4" />
+            </button>
+          </span>
         )}
         <button
           type="button"

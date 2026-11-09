@@ -10,6 +10,7 @@ import { dashboard, fleetToday, latestMonthWithTrips } from "@/server/services/s
 
 // Where each flag's one-tap fix goes.
 const FIX: Record<string, { href: (m: string) => string; cta: string }> = {
+  INCOMPLETE: { href: (m) => `/trips?m=${m}&flag=INCOMPLETE`, cta: "Fill in" },
   NO_DRIVER: { href: (m) => `/trips?m=${m}&driver=none`, cta: "Add drivers" },
   ZERO_COST: { href: (m) => `/trips?m=${m}&flagged=1`, cta: "Review" },
   DUP_LR: { href: (m) => `/trips?m=${m}&q=DUP`, cta: "Fix LR" },
@@ -22,6 +23,7 @@ const FIX: Record<string, { href: (m: string) => string; cta: string }> = {
 function flagText(kind: string, n: number, label: string) {
   const one = n === 1;
   const text: Record<string, string> = {
+    INCOMPLETE: one ? "trip is missing details from the import" : "trips are missing details from the import",
     NO_DRIVER: one ? "trip has no driver" : "trips have no driver",
     ZERO_COST: one ? "trip has revenue but no cost" : "trips have revenue but no cost",
     DIESEL_HIGH: one ? "trip used >10% more diesel than standard" : "trips used >10% more diesel than standard",

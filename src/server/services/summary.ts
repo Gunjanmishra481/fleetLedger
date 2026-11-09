@@ -12,7 +12,7 @@ export async function monthFlags(monthKey: string): Promise<Map<number, Flag[]>>
       where: { monthKey },
       select: {
         id: true, tripDate: true, vehicleId: true, originId: true, dieselL: true, freight: true,
-        totalCost: true, driverId: true, lrNo: true, stops: { select: { locationId: true } },
+        totalCost: true, driverId: true, lrNo: true, carsCount: true, incomplete: true, stops: { select: { locationId: true } },
       },
     }),
     db.rateCard.findMany({ orderBy: { effectiveFrom: "desc" } }),
@@ -32,7 +32,8 @@ export async function monthFlags(monthKey: string): Promise<Map<number, Flag[]>>
         c.effectiveFrom <= t.tripDate &&
         (!c.effectiveTo || c.effectiveTo >= t.tripDate),
     );
-    const f = flags(t, { rate, sameDayTrips: sameDay.get(`${t.vehicleId}|${t.tripDate.toISOString()}`) ?? 1 });
+    const sameDayTrips = t.vehicleId === null ? 1 : (sameDay.get(`${t.vehicleId}|${t.tripDate.toISOString()}`) ?? 1);
+    const f = flags({ ...t, stopCount: t.stops.length }, { rate, sameDayTrips });
     if (f.length) out.set(t.id, f);
   }
   return out;
@@ -116,6 +117,7 @@ export async function dashboard(monthKey: string) {
 
   const reg = new Map(vehicles.map((v) => [v.id, v.regNo]));
   const ranked = byTrailer
+    .filter((t): t is typeof t & { vehicleId: number } => t.vehicleId !== null)
     .map((t) => ({ vehicleId: t.vehicleId, regNo: reg.get(t.vehicleId) ?? "?", trips: t._count._all, profit: t._sum.profit ?? 0 }))
     .sort((a, b) => b.profit - a.profit);
 
@@ -143,7 +145,9 @@ export async function dashboard(monthKey: string) {
     top: ranked.slice(0, 5),
     bottom: ranked.slice(-5).reverse(),
     idle,
-    flags: [...flagCounts].map(([kind, v]) => ({ kind, ...v })).sort((a, b) => b.count - a.count),
+    flags: [...flagCounts]
+      .map(([kind, v]) => ({ kind, ...v, label: kind === "INCOMPLETE" ? "Missing details" : v.label }))
+      .sort((a, b) => Number(b.kind === "INCOMPLETE") - Number(a.kind === "INCOMPLETE") || b.count - a.count),
     flaggedTrips: flagMap.size,
   };
 }
@@ -217,8 +221,12 @@ export async function driverSummary(driverId: number, monthKey: string) {
       stops: { orderBy: { seq: "asc" }, select: { location: { select: { name: true } } } },
     },
   });
-  const trailers = groupSum(trips, (t) => t.vehicle.regNo, (t) => ({ id: t.vehicle.id }));
-  const routes = groupSum(trips, (t) => routeName(t.origin.name, t.stops.map((s) => s.location.name)));
+  const trailers = groupSum(
+    trips.filter((t) => t.vehicle),
+    (t) => t.vehicle!.regNo,
+    (t) => ({ id: t.vehicle!.id }),
+  );
+  const routes = groupSum(trips, (t) => routeName(t.origin?.name ?? "Unknown", t.stops.map((s) => s.location.name)));
   return {
     driver: { id: driver.id, name: driver.name, phone: driver.phone, aliases: driver.aliases.map((a) => a.alias) },
     totals: totalsOf(trips),
@@ -342,6 +350,7 @@ export async function routeSummary(monthKey: string) {
   };
   const map = new Map<string, Acc>();
   for (const t of trips) {
+    if (t.originId === null || !t.origin || t.stops.length === 0) continue; // incomplete import: no route yet
     const destKey = destinationKey(t.stops.map((s) => s.locationId));
     const key = `${t.originId}|${destKey}`;
     let a = map.get(key);

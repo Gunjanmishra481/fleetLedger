@@ -2,7 +2,7 @@
 import ExcelJS from "exceljs";
 import type { Db, DbTx } from "../db";
 import { rupeesToPaise, type Paise } from "@/lib/money";
-import { compute, destinationKey, monthKeyOf } from "./trip";
+import { NO_LR_PREFIX, compute, destinationKey, monthKeyOf, type IncompleteNote } from "./trip";
 
 // ---------- normalisation (shared with masters) ----------
 
@@ -171,9 +171,9 @@ export type ParsedTrip = {
   tripDate: Date;
   monthKey: string;
   lrNo: string;
-  regNo: string;
+  regNo: string | null;
   driverName: string | null;
-  originName: string;
+  originName: string | null;
   stopNames: string[];
   carsCount: number;
   dieselL: number;
@@ -185,10 +185,14 @@ export type ParsedTrip = {
   billingStatus: "UNBILLED" | "INVOICED";
   dealerName: string | null;
   notes: string | null;
+  /** What was blank or unreadable in the sheet row; the trip is flagged until fixed. */
+  incomplete: IncompleteNote[];
 };
 
 export type IssueKind =
   | "ERROR"
+  | "INCOMPLETE"
+  | "SKIPPED_EMPTY"
   | "MISSING_DRIVER"
   | "DUPLICATE_LR"
   | "LR_EXISTS"
@@ -272,23 +276,50 @@ export async function analyse(db: DbTx, sheet: { sheetName: string; rows: RawRow
     return name;
   };
 
-  for (const r of sheet.rows) {
-    const err = (message: string) => issues.push({ rowNo: r.rowNo, kind: "ERROR", message });
-    const before = issues.length;
-    if (!r.date) err("Missing or unreadable DATE");
-    if (!r.trailer) err("Missing TRAILER NO");
-    if (r.lr === "") err("Missing LR NO");
-    if (!r.from) err("Missing FROM");
-    if (!r.destination) err("Missing DESTINATION");
-    for (const k of ["cars", "diesel", "rate", "pod", "maint", "trip", "freight"] as const) {
-      if (Number.isNaN(r[k])) err(`${k.toUpperCase()} is not a number`);
-    }
-    if (r.cars === null || r.cars <= 0) err("NO CAR must be a positive number");
-    if (r.freight === null) err("Missing Trip Revenue");
-    if (issues.length > before) continue;
+  // Blank dates take the date of the row above (sheets run in date order); rows before the
+  // first dated row take the first date in the sheet.
+  const firstDate = sheet.rows.find((r) => r.date)?.date ?? null;
+  let lastDate: Date | null = firstDate;
+  let skipped = 0;
 
-    const regNo = normaliseRegNo(r.trailer);
-    if (!m.vehicles.has(regNo)) newVehicles.add(regNo);
+  for (const r of sheet.rows) {
+    // Pre-numbered template rows (serial, prefilled rate/POD or formulas only) are not trips.
+    const hasTrip = !!(r.trailer || r.lr || r.destination || r.from || r.driver || (r.freight && r.freight > 0) || (r.cars && r.cars > 0));
+    if (!hasTrip) {
+      skipped++;
+      continue;
+    }
+    if (!r.date && !lastDate) {
+      issues.push({ rowNo: r.rowNo, kind: "ERROR", message: "No readable DATE in this row or any row above it" });
+      continue;
+    }
+
+    const missing: IncompleteNote[] = [];
+    // One note per field: the first (most specific) reason wins.
+    const blank = (field: string, note: string) => {
+      if (!missing.some((x) => x.field === field)) missing.push({ field, note });
+    };
+    const num = (k: "cars" | "diesel" | "rate" | "pod" | "maint" | "trip" | "freight", field: string) => {
+      const v = r[k];
+      if (Number.isNaN(v)) {
+        blank(field, `${field} was not a number in the sheet`);
+        return null;
+      }
+      return v;
+    };
+
+    let tripDate = r.date;
+    if (!tripDate) {
+      tripDate = lastDate!;
+      blank("date", `date was blank; used ${tripDate.toISOString().slice(0, 10)} from the row above`);
+    }
+    lastDate = tripDate;
+
+    let regNo: string | null = null;
+    if (r.trailer) {
+      regNo = normaliseRegNo(r.trailer);
+      if (!m.vehicles.has(regNo)) newVehicles.add(regNo);
+    } else blank("trailer", "trailer was blank");
 
     let driverName: string | null = null;
     if (r.driver) {
@@ -298,11 +329,14 @@ export async function analyse(db: DbTx, sheet: { sheetName: string; rows: RawRow
       driverName = to ?? n;
       if (!m.drivers.has(driverName)) newDrivers.add(driverName);
     } else {
-      issues.push({ rowNo: r.rowNo, kind: "MISSING_DRIVER", message: `No driver on ${regNo}` });
+      issues.push({ rowNo: r.rowNo, kind: "MISSING_DRIVER", message: `No driver on ${regNo ?? "a row with no trailer"}` });
     }
 
-    const originName = location(r.from, "LOADING_POINT");
-    const stopNames = [...new Set(splitStops(r.destination).map((s) => location(s, "DESTINATION")))];
+    let originName: string | null = null;
+    if (r.from) originName = location(r.from, "LOADING_POINT");
+    else blank("loading point", "FROM was blank");
+    const stopNames = r.destination ? [...new Set(splitStops(r.destination).map((x) => location(x, "DESTINATION")))] : [];
+    if (!stopNames.length) blank("destination", "DESTINATION was blank");
 
     let dealerName: string | null = null;
     if (r.dealer) {
@@ -310,7 +344,22 @@ export async function analyse(db: DbTx, sheet: { sheetName: string; rows: RawRow
       if (!m.dealers.has(dealerName)) newDealers.add(dealerName);
     }
 
-    let lrNo = r.lr.toUpperCase().replace(/\s+/g, ""); // "1272 -a" -> "1272-A"
+    const cars = num("cars", "cars");
+    if (cars === null || cars <= 0) blank("cars", "NO CAR was blank");
+    const freight = num("freight", "freight");
+    if (freight === null || freight <= 0) blank("freight", "Trip Revenue was blank");
+    const diesel = num("diesel", "diesel");
+    const rate = num("rate", "diesel rate");
+    const pod = num("pod", "POD");
+    const maint = num("maint", "maintenance");
+    const allowance = num("trip", "allowance");
+
+    const monthKey = monthKeyOf(tripDate);
+    let lrNo = r.lr.toUpperCase().replace(/s+/g, ""); // "1272 -a" -> "1272-A"
+    if (!lrNo) {
+      lrNo = `${NO_LR_PREFIX}${monthKey.slice(2).replace("-", "")}-R${r.rowNo}`;
+      blank("LR no.", `LR NO was blank; given placeholder ${lrNo}`);
+    }
     let notes: string | null = r.remark && r.remark.toUpperCase() !== "INVOICE DONE" ? r.remark : null;
     const firstRow = seenLr.get(lrNo);
     if (firstRow !== undefined) {
@@ -330,14 +379,10 @@ export async function analyse(db: DbTx, sheet: { sheetName: string; rows: RawRow
       issues.push({ rowNo: r.rowNo, kind: "LR_EXISTS", message: `LR ${lrNo} is already in the database` });
     }
 
-    const serialNo = r.serial ?? trips.length + 1;
-    const sKey = `${monthKeyOf(r.date!)}:${serialNo}`;
+    const serialNo = r.serial && Number.isInteger(r.serial) ? r.serial : trips.length + 1;
+    const sKey = `${monthKey}:${serialNo}`;
     if (seenSerial.has(sKey)) {
-      issues.push({
-        rowNo: r.rowNo,
-        kind: "DUPLICATE_SERIAL",
-        message: `Serial ${serialNo} also on row ${seenSerial.get(sKey)}`,
-      });
+      issues.push({ rowNo: r.rowNo, kind: "DUPLICATE_SERIAL", message: `Serial ${serialNo} also on row ${seenSerial.get(sKey)}` });
     } else {
       seenSerial.set(sKey, r.rowNo);
     }
@@ -345,33 +390,38 @@ export async function analyse(db: DbTx, sheet: { sheetName: string; rows: RawRow
     const t: ParsedTrip = {
       rowNo: r.rowNo,
       serialNo,
-      tripDate: r.date!,
-      monthKey: monthKeyOf(r.date!),
+      tripDate,
+      monthKey,
       lrNo,
       regNo,
       driverName,
       originName,
       stopNames,
-      carsCount: r.cars!,
-      dieselL: r.diesel ?? 0,
-      dieselRate: money(r.rate),
-      podCharge: money(r.pod),
-      maintenance: money(r.maint),
-      driverAllowance: money(r.trip),
-      freight: money(r.freight),
+      carsCount: cars !== null && cars > 0 ? Math.round(cars) : 0,
+      dieselL: diesel ?? 0,
+      dieselRate: money(rate),
+      podCharge: money(pod),
+      maintenance: money(maint),
+      driverAllowance: money(allowance),
+      freight: money(freight),
       billingStatus: /INVOICE/i.test(r.remark) ? "INVOICED" : "UNBILLED",
       dealerName,
       notes,
+      incomplete: missing,
     };
-    if (compute(t).totalCost === 0) {
+    if (missing.length) {
+      issues.push({ rowNo: r.rowNo, kind: "INCOMPLETE", message: `Imported, fix later: ${missing.map((x) => x.note).join("; ")}` });
+    }
+    if (compute(t).totalCost === 0 && t.freight > 0) {
       issues.push({
         rowNo: r.rowNo,
         kind: "ZERO_COST",
-        message: `${regNo} ${originName} -> ${stopNames.join(" + ")} has revenue but no cost`,
+        message: `${regNo ?? "No trailer"} ${originName ?? "?"} -> ${stopNames.join(" + ") || "?"} has revenue but no cost`,
       });
     }
     trips.push(t);
   }
+  if (skipped) issues.push({ rowNo: null, kind: "SKIPPED_EMPTY", message: `${skipped} empty row${skipped > 1 ? "s" : ""} skipped (no trailer, LR, places or amounts)` });
 
   for (const a of aliasSeen.values()) {
     issues.push({ rowNo: null, kind: "ALIAS", message: `${a.kind === "DRIVER" ? "Driver" : "Location"} ${a.from} merged into ${a.to}` });
@@ -433,8 +483,8 @@ export async function commitImport(
   preview: Preview,
   opts: { user: string; replaceMonths?: boolean },
 ): Promise<CommitResult> {
-  const errors = preview.issues.filter((i) => i.kind === "ERROR");
-  if (errors.length) throw new Error(`Fix ${errors.length} row error(s) before importing`);
+  // Rows with errors (no usable date) are not in preview.trips; everything else imports.
+  if (preview.trips.length === 0) throw new Error("Nothing to import: no row in the sheet has trip details");
 
   return db.$transaction(
     async (tx) => {
@@ -453,7 +503,7 @@ export async function commitImport(
       const locationId = new Map<string, number>();
       const kinds = new Map<string, "LOADING_POINT" | "DESTINATION">();
       for (const t of preview.trips) {
-        kinds.set(t.originName, "LOADING_POINT");
+        if (t.originName) kinds.set(t.originName, "LOADING_POINT");
         for (const s of t.stopNames) if (!kinds.has(s)) kinds.set(s, "DESTINATION");
       }
       for (const [name, kind] of kinds) {
@@ -472,7 +522,7 @@ export async function commitImport(
         }
       }
       const vehicleId = new Map<string, number>();
-      for (const regNo of new Set(preview.trips.map((t) => t.regNo))) {
+      for (const regNo of new Set(preview.trips.map((t) => t.regNo).filter((r): r is string => !!r))) {
         vehicleId.set(regNo, (await tx.vehicle.upsert({ where: { regNo }, create: { regNo }, update: {} })).id);
       }
       const dealerId = new Map<string, number>();
@@ -492,7 +542,8 @@ export async function commitImport(
       // Rate card: most common freight / diesel / allowance / POD per route, from trips that have costs.
       const routes = new Map<string, ParsedTrip[]>();
       for (const t of preview.trips) {
-        if (compute(t).totalCost === 0) continue;
+        // Only complete, costed trips set route standards.
+        if (compute(t).totalCost === 0 || !t.originName || !t.stopNames.length || t.freight === 0) continue;
         const key = `${locationId.get(t.originName)}|${destinationKey(t.stopNames.map((s) => locationId.get(s)!))}`;
         routes.set(key, [...(routes.get(key) ?? []), t]);
       }
@@ -528,9 +579,9 @@ export async function commitImport(
             tripDate: t.tripDate,
             monthKey: t.monthKey,
             lrNo: t.lrNo,
-            vehicleId: vehicleId.get(t.regNo)!,
+            vehicleId: t.regNo ? vehicleId.get(t.regNo)! : null,
             driverId: t.driverName ? driverId.get(t.driverName)! : null,
-            originId: locationId.get(t.originName)!,
+            originId: t.originName ? locationId.get(t.originName)! : null,
             carsCount: t.carsCount,
             dieselL: t.dieselL,
             dieselRate: t.dieselRate,
@@ -545,6 +596,7 @@ export async function commitImport(
             billingStatus: t.billingStatus,
             notes: t.notes,
             createdBy: opts.user,
+            incomplete: t.incomplete.length ? JSON.stringify(t.incomplete) : null,
           };
         }),
       });
@@ -580,6 +632,7 @@ export async function commitImport(
             rateCardsCreated,
             totals: preview.totals,
             issues: preview.issues.length,
+            incompleteTrips: preview.trips.filter((t) => t.incomplete.length).length,
           }),
         },
       });

@@ -41,14 +41,16 @@ async function recentRoutes(asOf: Date): Promise<RecentRoute[]> {
   const tally = (list: typeof trips) => {
     const m = new Map<string, RecentRoute>();
     for (const t of list) {
+      if (t.originId === null || !t.origin || t.stops.length === 0) continue; // incomplete import
+      const originId = t.originId;
       const stopIds = t.stops.map((s) => s.locationId);
-      const key = `${t.originId}|${stopIds.join("-")}`;
+      const key = `${originId}|${stopIds.join("-")}`;
       const r = m.get(key);
       if (r) r.trips++;
       else {
-        const rc = cards.find((c) => c.originId === t.originId && c.destinationKey === destinationKey(stopIds) && c.effectiveFrom <= asOf);
+        const rc = cards.find((c) => c.originId === originId && c.destinationKey === destinationKey(stopIds) && c.effectiveFrom <= asOf);
         m.set(key, {
-          key, originId: t.originId, origin: t.origin.name, stopIds, stops: t.stops.map((s) => s.location.name),
+          key, originId, origin: t.origin.name, stopIds, stops: t.stops.map((s) => s.location.name),
           freight: rc?.freight ?? null, trips: 1,
         });
       }

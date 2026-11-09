@@ -56,13 +56,13 @@ export type TripRow = {
   id: number;
   serialNo: number;
   date: string; // ISO date
-  vehicleId: number;
-  regNo: string;
+  vehicleId: number | null;
+  regNo: string | null; // null = trailer missing (imported blank)
   driverId: number | null;
   driver: string | null;
   lrNo: string;
-  originId: number;
-  origin: string;
+  originId: number | null;
+  origin: string | null; // null = loading point missing (imported blank)
   destination: string;
   carsCount: number;
   dieselL: number;
@@ -96,12 +96,12 @@ export async function listTrips(f: TripFilters): Promise<TripRow[]> {
     serialNo: t.serialNo,
     date: t.tripDate.toISOString(),
     vehicleId: t.vehicleId,
-    regNo: t.vehicle.regNo,
+    regNo: t.vehicle?.regNo ?? null,
     driverId: t.driverId,
     driver: t.driver?.name ?? null,
     lrNo: t.lrNo,
     originId: t.originId,
-    origin: t.origin.name,
+    origin: t.origin?.name ?? null,
     destination: t.stops.map((s) => s.location.name).join(" + "),
     carsCount: t.carsCount,
     dieselL: t.dieselL,

@@ -71,6 +71,7 @@ export async function saveTrip(raw: TripInput): Promise<Result<{ id: number }>> 
     dealerId: input.dealerId,
     billingStatus: input.billingStatus,
     notes: input.notes || null,
+    incomplete: null, // reviewed in the form; anything still empty is flagged by flags() from the data itself
   };
   const stops = input.stopIds.map((locationId, i) => ({ locationId, seq: i + 1 }));
 

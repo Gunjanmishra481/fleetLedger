@@ -15,7 +15,8 @@ export type ImportSummary = {
   newVehicles: string[];
   newLocations: Preview["newLocations"];
   newDealers: string[];
-  hasErrors: boolean;
+  hasErrors: boolean; // rows that can't be imported at all (no usable date); the rest still import
+  incompleteTrips: number;
   lrClash: boolean;
 };
 
@@ -54,6 +55,7 @@ export async function previewImport(formData: FormData): Promise<Result<ImportSu
         newLocations: p.newLocations,
         newDealers: p.newDealers,
         hasErrors: p.issues.some((i) => i.kind === "ERROR"),
+        incompleteTrips: p.trips.filter((t) => t.incomplete.length).length,
         lrClash: p.issues.some((i) => i.kind === "LR_EXISTS"),
       },
     };
@@ -64,14 +66,14 @@ export async function previewImport(formData: FormData): Promise<Result<ImportSu
 
 export async function runImport(
   formData: FormData,
-): Promise<Result<{ tripsCreated: number; deletedTrips: number; rateCardsCreated: number; months: string[] }>> {
+): Promise<Result<{ tripsCreated: number; deletedTrips: number; rateCardsCreated: number; months: string[]; incompleteTrips: number }>> {
   try {
     const user = await requireUser();
     const replaceMonths = formData.get("replace") === "on";
     const p = await load(formData);
     const r = await commitImport(db, p, { user, replaceMonths }); // writes its own AuditLog row
     revalidatePath("/", "layout");
-    return { ok: true, data: { ...r, months: p.months } };
+    return { ok: true, data: { ...r, months: p.months, incompleteTrips: p.trips.filter((t) => t.incomplete.length).length } };
   } catch (e) {
     return { ok: false, error: message(e) };
   }

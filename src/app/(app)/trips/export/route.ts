@@ -45,10 +45,10 @@ export async function GET(req: Request) {
     ws.addRow([
       t.serialNo,
       new Date(t.date),
-      t.regNo,
+      t.regNo ?? "",
       t.driver ?? "",
       /^\d+$/.test(t.lrNo) ? Number(t.lrNo) : t.lrNo,
-      t.origin,
+      t.origin ?? "",
       t.destination,
       t.carsCount,
       t.dieselL,

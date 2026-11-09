@@ -8,7 +8,9 @@ import { formatINR, formatLakh, formatMonthKey, formatNumber } from "@/lib/forma
 import { previewImport, runImport, type ImportSummary } from "@/server/actions/import";
 
 const KIND_LABEL: Record<string, string> = {
-  ERROR: "Row errors (must fix)",
+  ERROR: "Rows that can't be imported",
+  INCOMPLETE: "Will import with missing details (fix later)",
+  SKIPPED_EMPTY: "Empty rows skipped",
   LR_EXISTS: "LR already in database",
   DUPLICATE_LR: "Duplicate LR in sheet",
   DUPLICATE_SERIAL: "Duplicate serial no.",
@@ -24,6 +26,7 @@ export function ImportForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [month, setMonth] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(0);
   const [pending, start] = useTransition();
 
   function formData() {
@@ -63,6 +66,7 @@ export function ImportForm() {
           `; ${r.data.rateCardsCreated} new rate-card routes.`,
       );
       setMonth(r.data.months[0] ?? null);
+      setIncomplete(r.data.incompleteTrips);
       setSummary(null);
     });
   }
@@ -107,6 +111,14 @@ export function ImportForm() {
             <Link className="underline" href={`/trips?m=${month}`}>
               Open {formatMonthKey(month)} trips
             </Link>
+          )}
+          {month && incomplete > 0 && (
+            <>
+              {" · "}
+              <Link className="font-semibold text-warn underline" href={`/trips?m=${month}&flag=INCOMPLETE`}>
+                {incomplete} trip{incomplete > 1 ? "s" : ""} need details filled in
+              </Link>
+            </>
           )}
         </p>
       )}
@@ -154,7 +166,7 @@ export function ImportForm() {
             )}
 
             {groups.map(([kind, list]) => (
-              <details key={kind} open={kind === "ERROR" || kind === "LR_EXISTS"} className="rounded-md border">
+              <details key={kind} open={kind === "ERROR" || kind === "LR_EXISTS" || kind === "INCOMPLETE" || kind === "SKIPPED_EMPTY"} className="rounded-md border">
                 <summary
                   className={`cursor-pointer px-3 py-2 font-medium ${kind === "ERROR" ? "text-destructive" : "text-amber-700"}`}
                 >
@@ -176,7 +188,13 @@ export function ImportForm() {
                 <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
                 Replace existing trips for {summary.months.map(formatMonthKey).join(", ")}
               </label>
-              <Button onClick={onImport} disabled={pending || summary.hasErrors || (summary.lrClash && !replace)}>
+              {summary.incompleteTrips > 0 && (
+                <p className="w-full text-sm text-warn">
+                  {summary.incompleteTrips} trip{summary.incompleteTrips > 1 ? "s" : ""} will be imported with missing details and shown under
+                  “Needs attention” on Home until filled in.
+                </p>
+              )}
+              <Button onClick={onImport} disabled={pending || summary.totals.trips === 0 || (summary.lrClash && !replace)}>
                 {pending ? "Importing…" : `Import ${summary.totals.trips} trips`}
               </Button>
             </div>

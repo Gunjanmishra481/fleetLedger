@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { monthFlags } from "../services/summary";
+import { parseIncomplete } from "../services/trip";
 
 const MONEY = new Set(["dieselRate", "podCharge", "maintenance", "driverAllowance", "freight", "totalCost", "profit", "dieselAmount"]);
 const LABEL: Record<string, string> = {
@@ -76,10 +77,10 @@ export async function tripDetail(id: number) {
     lrNo: t.lrNo,
     vehicle: t.vehicle,
     driver: t.driver,
-    origin: t.origin.name,
+    origin: t.origin?.name ?? null,
     stops: t.stops.map((s) => s.location.name),
     stopIds: t.stops.map((s) => s.location.id),
-    originId: t.origin.id,
+    originId: t.origin?.id ?? null,
     carsCount: t.carsCount,
     dieselL: t.dieselL,
     dieselRate: t.dieselRate,
@@ -96,6 +97,7 @@ export async function tripDetail(id: number) {
     createdBy: t.createdBy,
     createdAt: t.createdAt.toISOString(),
     flags: flagMap.get(t.id) ?? [],
+    importNotes: parseIncomplete(t.incomplete),
     audit,
   };
 }

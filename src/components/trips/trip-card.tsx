@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Ellipsis, Eye, Pencil } from "lucide-react";
 import { CarIcons } from "@/components/fl/car-count";
-import { NumberPlate } from "@/components/fl/number-plate";
+import { MissingPlate, NumberPlate } from "@/components/fl/number-plate";
 import { RouteLine } from "@/components/fl/route-line";
 import { displayName, formatRupees } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ export function TripCard({
       document.removeEventListener("keydown", esc);
     };
   }, [menu]);
-  const stops = t.destination.split(" + ");
+  const stops = t.destination ? t.destination.split(" + ") : [];
   const q = `?m=${month}`;
 
   return (
@@ -54,13 +54,17 @@ export function TripCard({
         }}
         aria-current={selected ? "true" : undefined}
         className="block space-y-3 rounded-[inherit] p-4 pr-14"
-        aria-label={`Trip LR ${t.lrNo}, ${t.regNo}`}
+        aria-label={`Trip LR ${t.lrNo}, ${t.regNo ?? "no trailer"}`}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <NumberPlate regNo={t.regNo} size="sm" />
+          {t.regNo ? <NumberPlate regNo={t.regNo} size="sm" /> : <MissingPlate size="sm" />}
           <span className={cn("min-w-0 truncate text-sm font-medium", !t.driver && "text-warn")}>{t.driver ? displayName(t.driver) : "No driver"}</span>
         </div>
-        <RouteLine origin={t.origin} stops={stops} compact />
+        <span className="flex flex-wrap items-center gap-x-1.5">
+          {t.origin ? <RouteLine origin={t.origin} stops={stops} compact /> : <span className="text-sm font-medium text-warn">Loading point missing</span>}
+          {!stops.length && <span className="text-sm text-warn">→ destination missing</span>}
+          {!t.origin && stops.length > 0 && <span className="text-sm">→ {stops.join(" + ")}</span>}
+        </span>
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             <CarIcons count={t.carsCount} />

@@ -151,3 +151,22 @@ Choices made without asking, per CLAUDE.md speed rules. Check these.
 - **Production login**: `ADMIN_USER=admin`; you set `ADMIN_PASSWORD` yourself in Vercel (never seen here). `AUTH_SECRET` is a random 32-byte value set only in Vercel.
 - **Preview deployments** (branches other than `main`) have no environment variables yet, so they will fail to build. Not needed while everything ships from `main`; add dev-branch values under the Preview environment if you start using branches.
 - `vercel link` added `.env*` to `.gitignore`; trimmed to `.vercel`, because the existing rules already ignore real env files and `.env*` would have hidden `.env.example` changes.
+
+## Import: blank cells no longer block (your request, 09-Nov-2026)
+
+- **Every row with trip data imports**; blanks are flagged, not errors. A row "has trip data" if it has any of: trailer, LR, loading point, destination, driver, cars or freight.
+- **How blanks are filled:**
+  - blank date → the date of the row above (sheets run in date order; rows before the first date take the first date in the sheet)
+  - blank trailer / loading point → left empty
+  - blank destination → no stops
+  - blank LR → placeholder `NOLR-<yymm>-R<row>`
+  - blank or non-numeric cars / freight → 0
+  - other blank amounts → 0, as before
+- **What was blank is saved on the trip** (`Trip.incomplete`: field + reason, e.g. "date was blank; used 2026-10-04 from the row above") and shown on the trip page as "From the sheet: …".
+- **"Missing details" flag** (`flags()` in trip.ts): shown while anything is still missing: no trailer, loading point or destination, a `NOLR-` LR, 0 cars, 0 freight, or unreviewed import notes. Saving the trip from the edit form clears the import notes (a person has checked it); anything still empty keeps the flag.
+- **Home → Needs attention** always lists "N trips are missing details from the import" first, with **Fill in** → `/trips?flag=INCOMPLETE`. The trips page now supports `?flag=<KIND>` for any flag, shown as a clearable chip.
+- **Empty template rows are skipped** (only a serial, prefilled rate/POD or formulas), and the preview shows how many.
+- **The only rows that can't import** are rows with no date when no row above has one. They're listed, and the rest still import. The Import button is disabled only when there's nothing to import.
+- **Schema**: `Trip.vehicleId` and `Trip.originId` are now optional (migration `0002_incomplete_imports`: adds the column and relaxes two constraints; no data changes). Trips without a trailer are left out of trailer rankings, and trips without a full route are left out of route stats and recent routes, until filled in. A "No trailer" chip shows where the plate would be.
+- **Rate cards are built only from complete, costed rows**, so a blank-heavy sheet can't set wrong route standards.
+- "Revenue with zero cost" is now flagged only when there is revenue (a blank row isn't double-flagged).

@@ -12,6 +12,15 @@ const SIZES = {
   lg: { box: "h-14 px-4 gap-2 rounded-xl border-[3px]", pre: "text-base", last: "text-3xl" },
 };
 
+/** Shown where a plate would be when an imported trip has no trailer yet. */
+export function MissingPlate({ size = "md" }: { size?: keyof typeof SIZES }) {
+  return (
+    <span className={cn("inline-flex shrink-0 items-center border-dashed border-warn bg-warn-soft font-semibold text-warn", SIZES[size].box, SIZES[size].pre === "text-base" ? "text-base" : "text-xs")}>
+      No trailer
+    </span>
+  );
+}
+
 /** Indian commercial number plate: yellow, black bold text, last four digits large. */
 export function NumberPlate({
   regNo,
