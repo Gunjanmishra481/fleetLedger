@@ -97,7 +97,7 @@ your dev data or production. They need `DIRECT_URL` and the login in `.env`.
 
 ## Deployment (Vercel + Neon)
 
-Live at **https://fleetledger.vercel.app** (sign in as `admin` with the production password).
+Live at **https://fleetledger-virid.vercel.app** (sign in as `admin` with the production password).
 
 - **Hosting:** Vercel project `fleetledger`, region `sin1` (Singapore), connected to this GitHub
   repo: **every push to `main` deploys to production.** Build = `pnpm vercel-build`
