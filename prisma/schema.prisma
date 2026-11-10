@@ -16,6 +16,7 @@ model Vehicle {
   id            Int      @id @default(autoincrement())
   regNo         String   @unique // upper-case, no spaces
   ownerType     String   @default("OWN") // OWN | MARKET
+  model         String? // carrier model/type shown on invoices, e.g. "TR8"
   usualDriverId Int?
   usualDriver   Driver?  @relation("UsualDriver", fields: [usualDriverId], references: [id], onDelete: SetNull)
   active        Boolean  @default(true)
@@ -45,16 +46,18 @@ model DriverAlias {
 }
 
 model Location {
-  id        Int             @id @default(autoincrement())
-  name      String          @unique
-  kind      String // LOADING_POINT | DESTINATION
-  district  String?
-  aliases   LocationAlias[]
-  originOf  Trip[]
-  stops     TripStop[]
-  rateCards RateCard[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          Int             @id @default(autoincrement())
+  name        String          @unique
+  kind        String // LOADING_POINT | DESTINATION
+  district    String?
+  consignorId Int? // loading points only: the client trips from here are billed to
+  consignor   Consignor?      @relation(fields: [consignorId], references: [id], onDelete: SetNull)
+  aliases     LocationAlias[]
+  originOf    Trip[]
+  stops       TripStop[]
+  rateCards   RateCard[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 /// Alternative spellings that resolve to a location (VADODRA -> VADODARA).
@@ -127,6 +130,9 @@ model Trip {
   notes           String?
   // JSON [{ field, note }] of what was blank/unreadable in the imported row; cleared when the trip is saved from the form.
   incomplete      String?
+  invoiceId       Int? // set while the trip is on a draft or issued invoice; cleared on cancel
+  invoice         Invoice?   @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  vins            TripVin[]
   createdBy       String
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -134,6 +140,7 @@ model Trip {
   @@index([monthKey])
   @@index([vehicleId, tripDate])
   @@index([driverId, tripDate])
+  @@index([invoiceId])
 }
 
 model TripStop {
@@ -158,4 +165,87 @@ model AuditLog {
   changes  String // JSON: { field: [old, new] } or a summary object
 
   @@index([entity, entityId])
+}
+
+/// Invoice numbering: prefix (src/config/company.ts) + FY code + running number.
+/// startNo is the first running number in that FY when no invoice has used the FY yet.
+model InvoiceSeries {
+  fy        String   @id // "2627" = Apr 2026–Mar 2027
+  startNo   Int
+  updatedAt DateTime @updatedAt
+}
+
+/// A client billed for trips (consignor), e.g. JKTI.
+model Consignor {
+  id            Int        @id @default(autoincrement())
+  name          String     @unique // short name, e.g. "JKTI"
+  billingName   String
+  addressLines  String[]
+  gstin         String?
+  pan           String?
+  state         String?
+  stateCode     String?
+  handlingLabel String? // "Place of Handling" column, e.g. "JKTI (CE)"
+  locations     Location[]
+  invoices      Invoice[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+/// One car (VIN) carried on a trip, from the client's VIN sheet.
+model TripVin {
+  id             Int       @id @default(autoincrement())
+  tripId         Int
+  trip           Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  seq            Int // order within the client's sheet
+  vin            String    @unique
+  model          String?
+  oem            String?
+  region         String?
+  dealerCode     String?
+  dealerName     String?
+  dealerLocation String?
+  oemInvoiceDate String? // kept exactly as the client wrote it, e.g. "12/10/2026"
+  oemInvoiceNo   String?
+  lotNo          String?
+  loafNo         String?
+  lastMileTpt    String?
+  carrierNo      String? // as on the client's sheet (checked against the trip's trailer)
+  dispatchDate   DateTime? @db.Date // client's dispatch date (can differ from the trip date)
+
+  @@index([tripId])
+}
+
+model Invoice {
+  id            Int       @id @default(autoincrement())
+  number        String?   @unique // null while a draft; e.g. "MKLAMD2627108"
+  fy            String? // "2627"
+  seq           Int? // running number within the FY when the number follows the series
+  consignorId   Int
+  consignor     Consignor @relation(fields: [consignorId], references: [id])
+  invoiceDate   DateTime  @db.Date
+  period        String // "2026-2027"
+  placeOfSupply String
+  subtotal      Int // paise
+  igst          Int // paise
+  cgst          Int // paise
+  sgst          Int // paise
+  roundOff      Int // paise, can be negative
+  total         Int // paise
+  status        String    @default("DRAFT") // DRAFT | ISSUED | PAID | CANCELLED
+  // Frozen at issue so the document never changes afterwards (JSON).
+  seller        String?
+  buyer         String?
+  lines         String?
+  vinRows       String?
+  trips         Trip[]
+  createdBy     String
+  issuedAt      DateTime?
+  paidAt        DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([fy, seq])
+  @@index([consignorId, status])
 }

@@ -8,7 +8,7 @@
     "start": "next start",
     "test": "vitest run",
     "postinstall": "prisma generate",
-    "db:seed": "prisma migrate deploy && tsx prisma/seed.ts",
+    "db:seed": "prisma migrate deploy && tsx prisma/seed.ts && tsx prisma/seed-invoice.ts",
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate deploy",
     "vercel-build": "prisma generate && prisma migrate deploy && next build"
