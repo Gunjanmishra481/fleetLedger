@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ChevronRight, Database, LogOut, Upload, Waypoints } from "lucide-react";
+import { ChevronRight, Database, LogOut, ReceiptIndianRupee, Upload, Waypoints } from "lucide-react";
 import { logout } from "../../login/actions";
 
 export default async function MorePage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const { m } = await searchParams;
   const q = m ? `?m=${m}` : "";
   const items = [
+    { href: "/billing", label: "Billing", hint: "Invoices, unbilled trips, VIN sheets", icon: ReceiptIndianRupee },
     { href: `/routes${q}`, label: "Routes", hint: "Profit per loading point → destination", icon: Waypoints },
     { href: `/import${q}`, label: "Import", hint: "Load a monthly Excel sheet", icon: Upload },
     { href: `/masters${q}`, label: "Masters", hint: "Trailers, drivers, places, rate card", icon: Database },

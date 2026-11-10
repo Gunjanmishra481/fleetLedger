@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Ellipsis, House, ListChecks, Plus, Truck, type LucideIcon } from "lucide-react";
+import { Ellipsis, House, ListChecks, Plus, ReceiptIndianRupee, Truck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; icon: LucideIcon; match: string[]; primary?: boolean };
@@ -12,8 +12,12 @@ export const TABS: Item[] = [
   { href: "/trips", label: "Trips", icon: ListChecks, match: ["/trips"] },
   { href: "/trips/new", label: "Trip", icon: Plus, match: ["/trips/new"], primary: true },
   { href: "/fleet", label: "Fleet", icon: Truck, match: ["/fleet", "/trailers", "/drivers", "/routes"] },
-  { href: "/more", label: "More", icon: Ellipsis, match: ["/more", "/masters", "/import"] },
+  { href: "/more", label: "More", icon: Ellipsis, match: ["/more", "/masters", "/import", "/billing"] },
 ];
+
+/** The rail has room for Billing as its own item; on the phone bar it lives under More (docs/DESIGN.md keeps 5 tabs). */
+const BILLING: Item = { href: "/billing", label: "Billing", icon: ReceiptIndianRupee, match: ["/billing"] };
+const RAIL_TABS: Item[] = [...TABS.slice(0, 4), BILLING, TABS[4]];
 
 function useNav() {
   const pathname = usePathname();
@@ -86,7 +90,7 @@ export function Rail() {
         <span className="rail-label">FleetLedger</span>
       </Link>
       <ul className="flex flex-col gap-1 px-3 py-2">
-        {TABS.map((it) => {
+        {RAIL_TABS.map((it) => {
           const active = isActive(it);
           const Icon = it.icon;
           return (

@@ -14,6 +14,7 @@ import type {
   rateCardSchema,
   vehicleSchema,
 } from "@/lib/schemas/masters";
+import type { consignorSchema } from "@/lib/schemas/consignor";
 
 /** A problem the person can fix (shown next to the field); anything else is a bug. */
 export class MasterError extends Error {
@@ -46,7 +47,7 @@ export async function saveVehicle(db: Db, input: Out<typeof vehicleSchema>, user
   return db.$transaction(async (tx) => {
     const clash = await tx.vehicle.findUnique({ where: { regNo } });
     if (clash && clash.id !== input.id) throw new MasterError(`${regNo} already exists`, "regNo");
-    const data = { regNo, ownerType: input.ownerType, usualDriverId: input.usualDriverId, active: input.active };
+    const data = { regNo, ownerType: input.ownerType, model: input.model ?? null, usualDriverId: input.usualDriverId, active: input.active };
     if (input.id) {
       const before = await tx.vehicle.findUniqueOrThrow({ where: { id: input.id } });
       await tx.vehicle.update({ where: { id: input.id }, data });
@@ -346,5 +347,44 @@ export async function deleteDieselRate(db: Db, id: number, user: string) {
     if ((await tx.dieselRate.count()) <= 1) throw new MasterError("Keep at least one diesel price");
     const r = await tx.dieselRate.delete({ where: { id } });
     await audit(tx, user, "DieselRate", id, "DELETE", r);
+  });
+}
+
+// ---------- clients (consignors) ----------
+
+/**
+ * Saves a client and which loading points bill to it. A loading point belongs to one client:
+ * picking it here moves it from any other client.
+ */
+export async function saveConsignor(db: Db, input: Out<typeof consignorSchema>, user: string) {
+  const up = (s: string | null) => (s === null ? null : s.trim().toUpperCase());
+  const data = {
+    name: input.name,
+    billingName: input.billingName,
+    addressLines: input.addressLines,
+    gstin: up(input.gstin),
+    pan: up(input.pan),
+    state: input.state ? input.state.trim().toUpperCase() : null,
+    stateCode: input.stateCode?.trim() ?? null,
+    handlingLabel: input.handlingLabel?.trim() ?? null,
+  };
+  return db.$transaction(async (tx) => {
+    const clash = await tx.consignor.findUnique({ where: { name: data.name } });
+    if (clash && clash.id !== input.id) throw new MasterError(`${data.name} already exists`, "name");
+    let id: number;
+    if (input.id) {
+      const before = await tx.consignor.findUniqueOrThrow({ where: { id: input.id } });
+      await tx.consignor.update({ where: { id: input.id }, data });
+      await audit(tx, user, "Consignor", input.id, "UPDATE", diff(before as unknown as Record<string, unknown>, data as unknown as Record<string, unknown>));
+      id = input.id;
+    } else {
+      id = (await tx.consignor.create({ data })).id;
+      await audit(tx, user, "Consignor", id, "CREATE", data);
+    }
+    await tx.location.updateMany({ where: { consignorId: id, id: { notIn: input.locationIds } }, data: { consignorId: null } });
+    if (input.locationIds.length) {
+      await tx.location.updateMany({ where: { id: { in: input.locationIds }, kind: "LOADING_POINT" }, data: { consignorId: id } });
+    }
+    return id;
   });
 }

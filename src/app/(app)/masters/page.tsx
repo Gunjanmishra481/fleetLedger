@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DealersTab, DriversTab, TrailersTab } from "@/components/masters/people-tabs";
 import { PlacesTab } from "@/components/masters/places-tab";
 import { DieselTab, RateCardTab } from "@/components/masters/rates-tabs";
+import { ClientsTab } from "@/components/masters/clients-tab";
 import { cn } from "@/lib/utils";
 import { mastersData } from "@/server/queries/masters";
 
@@ -9,6 +10,7 @@ const TABS = [
   { key: "trailers", label: "Trailers" },
   { key: "drivers", label: "Drivers" },
   { key: "places", label: "Places" },
+  { key: "clients", label: "Clients" },
   { key: "dealers", label: "Dealers" },
   { key: "rates", label: "Rate card" },
   { key: "diesel", label: "Diesel price" },
@@ -23,6 +25,7 @@ export default async function MastersPage({ searchParams }: { searchParams: Prom
     trailers: data.vehicles.length,
     drivers: data.drivers.length,
     places: data.locations.length,
+    clients: data.consignors.length,
     dealers: data.dealers.length,
     rates: data.rateRoutes.length,
     diesel: data.diesel.length,
@@ -54,6 +57,7 @@ export default async function MastersPage({ searchParams }: { searchParams: Prom
       {tab === "trailers" && <TrailersTab vehicles={data.vehicles} drivers={data.drivers} />}
       {tab === "drivers" && <DriversTab drivers={data.drivers} />}
       {tab === "places" && <PlacesTab locations={data.locations} />}
+      {tab === "clients" && <ClientsTab clients={data.consignors} locations={data.locations} />}
       {tab === "dealers" && <DealersTab dealers={data.dealers} />}
       {tab === "rates" && <RateCardTab routes={data.rateRoutes} locations={data.locations} />}
       {tab === "diesel" && <DieselTab rates={data.diesel} />}

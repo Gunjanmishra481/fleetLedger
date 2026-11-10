@@ -15,6 +15,7 @@ import {
   rateCardSchema,
   vehicleSchema,
 } from "@/lib/schemas/masters";
+import { consignorSchema } from "@/lib/schemas/consignor";
 
 export type MasterResult<T = null> = { ok: true; data: T } | { ok: false; error: string; field?: string };
 
@@ -67,3 +68,4 @@ export const mergeLocations = async (raw: unknown) => run(mergeSchema, raw, (i, 
 export const deleteDealer = async (id: unknown) => run(idSchema, id, (i, u) => svc.deleteDealer(db, i, u));
 export const deleteRateCard = async (id: unknown) => run(idSchema, id, (i, u) => svc.deleteRateCard(db, i, u));
 export const deleteDieselRate = async (id: unknown) => run(idSchema, id, (i, u) => svc.deleteDieselRate(db, i, u));
+export const saveConsignor = async (raw: unknown) => run(consignorSchema, raw, (i, u) => svc.saveConsignor(db, i, u));

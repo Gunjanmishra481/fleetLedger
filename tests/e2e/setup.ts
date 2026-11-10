@@ -7,6 +7,8 @@ export default function setup() {
   const url = process.env.E2E_DATABASE_URL;
   if (!url) throw new Error("E2E_DATABASE_URL not set by playwright.config.ts");
   migrate(url);
-  execSync("pnpm tsx prisma/seed.ts", { stdio: "pipe", env: { ...process.env, DATABASE_URL: url, DIRECT_URL: url } });
+  const env = { ...process.env, DATABASE_URL: url, DIRECT_URL: url };
+  execSync("pnpm tsx prisma/seed.ts", { stdio: "pipe", env });
+  execSync("pnpm tsx prisma/seed-invoice.ts", { stdio: "pipe", env });
   return () => dropSchema(url);
 }

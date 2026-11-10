@@ -21,6 +21,8 @@ export async function tripDetail(id: number) {
       driver: { select: { id: true, name: true, phone: true } },
       origin: { select: { id: true, name: true } },
       dealer: { select: { name: true } },
+      invoice: { select: { id: true, number: true, status: true } },
+      vins: { orderBy: { seq: "asc" }, select: { vin: true, model: true, oem: true, dealerName: true, dealerLocation: true, carrierNo: true } },
       stops: { orderBy: { seq: "asc" }, select: { location: { select: { id: true, name: true } } } },
     },
   });
@@ -98,6 +100,8 @@ export async function tripDetail(id: number) {
     createdAt: t.createdAt.toISOString(),
     flags: flagMap.get(t.id) ?? [],
     importNotes: parseIncomplete(t.incomplete),
+    invoice: t.invoice,
+    vins: t.vins,
     audit,
   };
 }

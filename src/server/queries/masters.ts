@@ -2,7 +2,7 @@ import { db } from "../db";
 import { toDateInput } from "@/lib/schemas/trip";
 
 export async function mastersData() {
-  const [vehicles, drivers, locations, dealers, cards, diesel, originUse, stopUse] = await Promise.all([
+  const [vehicles, drivers, locations, dealers, cards, diesel, originUse, stopUse, consignors] = await Promise.all([
     db.vehicle.findMany({
       orderBy: [{ active: "desc" }, { regNo: "asc" }],
       include: { usualDriver: { select: { name: true } }, _count: { select: { trips: true } } },
@@ -17,6 +17,7 @@ export async function mastersData() {
     db.dieselRate.findMany({ orderBy: { effectiveFrom: "desc" } }),
     db.trip.groupBy({ by: ["originId"], _count: { _all: true } }),
     db.tripStop.groupBy({ by: ["locationId"], _count: { _all: true } }),
+    db.consignor.findMany({ orderBy: { name: "asc" }, include: { locations: { select: { id: true, name: true } }, _count: { select: { invoices: true } } } }),
   ]);
   const locName = new Map(locations.map((l) => [l.id, l.name]));
 
@@ -42,6 +43,7 @@ export async function mastersData() {
       id: v.id,
       regNo: v.regNo,
       ownerType: v.ownerType as "OWN" | "MARKET",
+      model: v.model,
       usualDriverId: v.usualDriverId,
       usualDriver: v.usualDriver?.name ?? null,
       active: v.active,
@@ -78,6 +80,10 @@ export async function mastersData() {
         })),
       }))
       .sort((a, b) => a.origin.localeCompare(b.origin) || a.stops.join().localeCompare(b.stops.join())),
+    consignors: consignors.map((c) => ({
+      id: c.id, name: c.name, billingName: c.billingName, addressLines: c.addressLines, gstin: c.gstin, pan: c.pan,
+      state: c.state, stateCode: c.stateCode, handlingLabel: c.handlingLabel, locations: c.locations, invoices: c._count.invoices,
+    })),
     diesel: diesel.map((r) => ({ id: r.id, ratePaise: r.ratePaise, effectiveFrom: toDateInput(r.effectiveFrom) })),
   };
 }

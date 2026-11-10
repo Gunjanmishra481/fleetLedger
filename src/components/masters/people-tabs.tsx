@@ -38,7 +38,10 @@ export function TrailersTab({ vehicles, drivers }: { vehicles: Vehicle[]; driver
           <Tile key={v.id} onClick={() => setEdit(v)} className={cn(!v.active && "opacity-60")} aria-label={`Edit trailer ${v.regNo}`}>
             <div className="flex w-full items-center justify-between gap-2">
               <NumberPlate regNo={v.regNo} />
-              {v.ownerType === "MARKET" && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">Market</span>}
+              <span className="flex gap-1">
+                {v.model && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">{v.model}</span>}
+                {v.ownerType === "MARKET" && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">Market</span>}
+              </span>
             </div>
             <span className="text-sm text-muted-foreground">{v.usualDriver ? displayName(v.usualDriver) : "No usual driver"}</span>
             <span className="num text-xs text-muted-foreground">
@@ -56,6 +59,7 @@ export function TrailersTab({ vehicles, drivers }: { vehicles: Vehicle[]; driver
 function TrailerSheet({ vehicle, drivers, onClose }: { vehicle: Vehicle | null; drivers: Driver[]; onClose: () => void }) {
   const [regNo, setRegNo] = useState(vehicle?.regNo ?? "");
   const [ownerType, setOwnerType] = useState<"OWN" | "MARKET">(vehicle?.ownerType ?? "OWN");
+  const [model, setModel] = useState(vehicle?.model ?? "");
   const [usualDriverId, setUsualDriverId] = useState<number | null>(vehicle?.usualDriverId ?? null);
   const [active, setActive] = useState(vehicle?.active ?? true);
   const { pending, error, submit } = useSave();
@@ -65,7 +69,7 @@ function TrailerSheet({ vehicle, drivers, onClose }: { vehicle: Vehicle | null; 
         className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
-          submit(() => saveVehicle({ id: vehicle?.id, regNo, ownerType, usualDriverId, active }), onClose);
+          submit(() => saveVehicle({ id: vehicle?.id, regNo, ownerType, model, usualDriverId, active }), onClose);
         }}
       >
         <Field label="Registration no." hint="Stored in capitals without spaces">
@@ -80,6 +84,9 @@ function TrailerSheet({ vehicle, drivers, onClose }: { vehicle: Vehicle | null; 
           />
         </Field>
         {regNo.trim() && <NumberPlate regNo={regNo.toUpperCase().replace(/[\s-]+/g, "")} size="lg" />}
+        <Field label="Model / type" hint='Printed in the invoice "Model/Type" column, e.g. TR8'>
+          <input value={model} onChange={(e) => setModel(e.target.value.toUpperCase())} autoCapitalize="characters" className={inputCls} />
+        </Field>
         <div className="space-y-1.5">
           <span className="text-sm font-medium">Owner</span>
           <Segmented label="Owner" value={ownerType} onChange={setOwnerType} options={[{ value: "OWN", label: "Own trailer" }, { value: "MARKET", label: "Market vehicle" }]} />

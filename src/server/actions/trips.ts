@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db } from "../db";
+import { db, type DbTx } from "../db";
 import { requireUser } from "../session";
 import { autofill, compute, monthKeyOf, nextLrNo, nextSerialNo, type Autofill } from "../services/trip";
 import { parseDateOnly, tripInputSchema, type TripInput } from "@/lib/schemas/trip";
@@ -30,6 +30,15 @@ const AUDITED = [
 
 function auditValue(v: unknown) {
   return v instanceof Date ? v.toISOString().slice(0, 10) : (v ?? null);
+}
+
+/** Trips on an issued or paid invoice are locked: the invoice is a legal document. */
+class LockedTrip extends Error {}
+async function assertUnlocked(tx: DbTx, tripId: number) {
+  const t = await tx.trip.findUnique({ where: { id: tripId }, select: { lrNo: true, invoice: { select: { status: true, number: true } } } });
+  if (t?.invoice && (t.invoice.status === "ISSUED" || t.invoice.status === "PAID")) {
+    throw new LockedTrip(`LR ${t.lrNo} is on invoice ${t.invoice.number}. Cancel that invoice first to change this trip.`);
+  }
 }
 
 export async function saveTrip(raw: TripInput): Promise<Result<{ id: number }>> {
@@ -78,7 +87,10 @@ export async function saveTrip(raw: TripInput): Promise<Result<{ id: number }>> 
   try {
     const id = await db.$transaction(async (tx) => {
       if (input.id) {
+        await assertUnlocked(tx, input.id);
         const before = await tx.trip.findUniqueOrThrow({ where: { id: input.id }, include: { stops: true } });
+        // On a draft invoice the billing status is the invoice's to set, not the form's.
+        if (before.invoiceId) data.billingStatus = before.billingStatus as typeof data.billingStatus;
         const serialNo = before.monthKey === data.monthKey ? before.serialNo : await nextSerialNo(tx, data.monthKey);
         await tx.tripStop.deleteMany({ where: { tripId: input.id } });
         await tx.trip.update({ where: { id: input.id }, data: { ...data, serialNo, stops: { create: stops } } });
@@ -120,16 +132,25 @@ export async function saveTrip(raw: TripInput): Promise<Result<{ id: number }>> 
   }
 }
 
+const lockedResult = (e: unknown): Result<null> | null => (e instanceof LockedTrip ? { ok: false, error: e.message } : null);
+
 export async function deleteTrip(id: number): Promise<Result<null>> {
   const user = await requireUser();
   const tripId = z.number().int().positive().parse(id);
-  await db.$transaction(async (tx) => {
-    const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
-    await tx.trip.delete({ where: { id: tripId } });
-    await tx.auditLog.create({
-      data: { user, entity: "Trip", entityId: String(tripId), action: "DELETE", changes: JSON.stringify(before) },
+  try {
+    await db.$transaction(async (tx) => {
+      await assertUnlocked(tx, tripId);
+      const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+      await tx.trip.delete({ where: { id: tripId } });
+      await tx.auditLog.create({
+        data: { user, entity: "Trip", entityId: String(tripId), action: "DELETE", changes: JSON.stringify(before) },
+      });
     });
-  });
+  } catch (e) {
+    const r = lockedResult(e);
+    if (r) return r;
+    throw e;
+  }
   revalidatePath("/", "layout");
   return { ok: true, data: null };
 }
@@ -140,6 +161,8 @@ export async function setBillingStatus(id: number, status: string): Promise<Resu
   const user = await requireUser();
   const p = billingSchema.safeParse({ id, status });
   if (!p.success) return { ok: false, error: "Unknown billing status" };
+  const onInvoice = await db.trip.findUnique({ where: { id: p.data.id }, select: { invoice: { select: { number: true } } } });
+  if (onInvoice?.invoice) return { ok: false, error: `This trip is on invoice ${onInvoice.invoice.number ?? "(draft)"}; its billing status follows the invoice.` };
   await db.$transaction(async (tx) => {
     const before = await tx.trip.findUniqueOrThrow({ where: { id: p.data.id }, select: { billingStatus: true } });
     if (before.billingStatus === p.data.status) return;

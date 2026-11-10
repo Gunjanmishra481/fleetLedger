@@ -8,6 +8,7 @@ import { displayName, formatDate, formatINR, formatRelativeDay, istToday } from 
 import { cn } from "@/lib/utils";
 import type { TripDetailData } from "@/server/queries/trip-detail";
 import { BillingControl, TripActions } from "./trip-actions";
+import { StatusChip } from "@/components/billing/status-chip";
 
 const ACTION: Record<string, string> = { CREATE: "Created", UPDATE: "Changed", DELETE: "Deleted", IMPORT: "Imported" };
 
@@ -133,10 +134,43 @@ export function TripDetail({ t, month, closeHref }: { t: TripDetailData; month: 
 
       <div className="card-surface space-y-3 p-5">
         <h2 className="font-semibold">Billing</h2>
-        <BillingControl id={t.id} status={t.billingStatus} />
+        {t.invoice ? (
+          <Link href={`/billing/${t.invoice.id}`} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border bg-card px-4 hover:bg-muted">
+            <span className="num font-semibold">{t.invoice.number ?? "Draft invoice"}</span>
+            <StatusChip status={t.invoice.status} />
+          </Link>
+        ) : (
+          <BillingControl id={t.id} status={t.billingStatus} />
+        )}
+        {t.invoice && (t.invoice.status === "ISSUED" || t.invoice.status === "PAID") && (
+          <p className="text-xs text-muted-foreground">Locked while on this invoice. Cancel the invoice to edit the trip.</p>
+        )}
       </div>
 
-      <TripActions id={t.id} lrNo={t.lrNo} month={month} />
+      {t.vins.length > 0 && (
+        <details className="card-surface group p-5">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold">
+            VINs ({t.vins.length})
+            <span className="text-sm font-normal text-muted-foreground group-open:hidden">Show</span>
+          </summary>
+          <ul className="mt-3 divide-y text-sm">
+            {t.vins.map((v) => (
+              <li key={v.vin} className="flex flex-wrap items-baseline justify-between gap-x-3 py-2">
+                <span className="num font-mono font-medium">{v.vin}</span>
+                <span className="text-muted-foreground">
+                  {[v.model, v.oem].filter(Boolean).join(" · ")}
+                  {v.dealerName && ` · ${v.dealerName}${v.dealerLocation ? `, ${v.dealerLocation}` : ""}`}
+                </span>
+                {v.carrierNo && t.vehicle && v.carrierNo !== t.vehicle.regNo && (
+                  <span className="w-full text-xs text-warn">Client's sheet says carrier {v.carrierNo}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <TripActions id={t.id} lrNo={t.lrNo} month={month} locked={!!t.invoice && (t.invoice.status === "ISSUED" || t.invoice.status === "PAID")} />
 
       <div className="card-surface p-5">
         <h2 className="mb-3 font-semibold">History</h2>

@@ -230,3 +230,33 @@
     --dock-bottom: 0.75rem;
   }
 }
+
+/* ---------- Print: only the invoice, on A4 portrait (Billing → invoice → Print / Save as PDF) ---------- */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .nav-rail,
+  .nav-bottom,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  .app-main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .print-area {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+  .invoice-paper {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -19,6 +19,12 @@ export const vehicleSchema = z.object({
     .transform((s) => s.toUpperCase().replace(/[\s-]+/g, ""))
     .pipe(z.string().regex(/^[A-Z0-9]{6,12}$/, "Registration no. should be 6–12 letters/digits, e.g. NL01AL1658")),
   ownerType: z.enum(["OWN", "MARKET"]),
+  model: z
+    .string()
+    .trim()
+    .max(20)
+    .transform((s) => (s ? s.toUpperCase() : null))
+    .nullish(),
   usualDriverId: id.nullable(),
   active: z.boolean(),
 });
