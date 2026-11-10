@@ -69,14 +69,19 @@ const clean = (o) => JSON.parse(JSON.stringify(o ?? {}));
 
   const headerRows = Array.from({ length: FIRST_LINE_ROW - 1 }, (_, i) => i + 1);
   const footerRows = Array.from({ length: inv.rowCount - LINE_CAPACITY_LAST_ROW }, (_, i) => LINE_CAPACITY_LAST_ROW + 1 + i);
-  const lineStyle = {};
-  inv.getRow(FIRST_LINE_ROW).eachCell({ includeEmpty: false }, (c) => (lineStyle[c.letter ?? c.address.replace(/\d+/, "")] = clean(c.style)));
-  // Rows inside the line area that the reference left empty keep their (lack of) styles.
-  const blankLineRowStyle = {};
-  inv.getRow(LINE_CAPACITY_LAST_ROW).eachCell({ includeEmpty: true }, (c) => {
-    const st = clean(c.style);
-    if (Object.keys(st).length) blankLineRowStyle[c.address.replace(/\d+/, "")] = st;
-  });
+  // Every row of the line area (14..32) with every styled cell, as the reference has it:
+  // filled rows (14..28), empty bordered rows (29..31) and the closing row (32).
+  const lineRowStyles = {};
+  let referenceLineCount = 0;
+  for (let r = FIRST_LINE_ROW; r <= LINE_CAPACITY_LAST_ROW; r++) {
+    const styles = {};
+    inv.getRow(r).eachCell({ includeEmpty: true }, (c) => {
+      const st = clean(c.style);
+      if (Object.keys(st).length) styles[c.address.replace(/\d+/, "")] = st;
+    });
+    lineRowStyles[r] = styles;
+    if (inv.getCell(`C${r}`).value) referenceLineCount = r - FIRST_LINE_ROW + 1;
+  }
 
   const image = inv.getImages()[0];
   const anchor = (a) => a && { nativeCol: a.nativeCol, nativeColOff: a.nativeColOff, nativeRow: a.nativeRow, nativeRowOff: a.nativeRowOff };
@@ -96,13 +101,14 @@ const clean = (o) => JSON.parse(JSON.stringify(o ?? {}));
       totalsFirstRow: TOTALS_FIRST_ROW,
       headerCells: cellsOf(inv, headerRows, { values: true }),
       footerCells: cellsOf(inv, footerRows, { values: true }),
-      lineStyle,
-      blankLineRowStyle,
+      lineRowStyles,
+      referenceLineCount, // rows from 14 that hold lines in the reference (15)
+      blankLineRow: FIRST_LINE_ROW + referenceLineCount, // first empty bordered row (29)
       signature: image && { tl: anchor(image.range.tl), br: anchor(image.range.br), editAs: image.range.editAs },
     },
     vinDetails: { ...sheetMeta(vin), header: vinHeader, rowStyle: vinRowStyle },
   };
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, JSON.stringify(layout, null, 1) + "\n");
-  console.log(`wrote ${path.relative(process.cwd(), OUT)}: ${layout.invoice.headerCells.length} header cells, ${layout.invoice.footerCells.length} footer cells, line style ${Object.keys(lineStyle).join("")}, image ${!!image}`);
+  console.log(`wrote ${path.relative(process.cwd(), OUT)}: ${layout.invoice.headerCells.length} header cells, ${layout.invoice.footerCells.length} footer cells, ${referenceLineCount} line rows, image ${!!image}`);
 })();

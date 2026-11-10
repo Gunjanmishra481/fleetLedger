@@ -12,3 +12,4 @@ playwright-report/
 .env.vercel-prod
 
 .vercel
+tests/output/
